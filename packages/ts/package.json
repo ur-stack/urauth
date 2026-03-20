@@ -1,0 +1,19 @@
+{
+  "name": "@urauth/ts",
+  "version": "0.1.0",
+  "description": "TypeScript core for urauth — JWT verification, types, and exceptions",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "jose": "^5.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  },
+  "license": "MIT"
+}

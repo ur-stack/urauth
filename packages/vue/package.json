@@ -1,0 +1,23 @@
+{
+  "name": "@urauth/vue",
+  "version": "0.1.0",
+  "description": "Vue composables for urauth authentication",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "peerDependencies": {
+    "vue": "^3.0.0"
+  },
+  "dependencies": {
+    "@urauth/ts": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vue": "^3.5.0"
+  },
+  "license": "MIT"
+}

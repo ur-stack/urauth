@@ -1,0 +1,15 @@
+[project]
+name = "fastapi-example"
+version = "0.1.0"
+description = "Task Manager API demonstrating urauth features"
+requires-python = ">=3.10"
+dependencies = [
+    "urauth[fastapi]",
+    "uvicorn[standard]",
+    "sqlalchemy[asyncio]",
+    "aiosqlite",
+    "pydantic-settings",
+]
+
+[tool.uv.sources]
+urauth = { path = "../../" }

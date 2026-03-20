@@ -1,0 +1,87 @@
+[project]
+name = "urauth"
+version = "0.1.0"
+description = "Unified authentication & authorization — JWT, OAuth2, RBAC, multi-tenant. Framework-agnostic core with adapters for FastAPI, Flask, Django."
+readme = "../../README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "grandmagus" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "PyJWT>=2.8.0",
+    "bcrypt>=4.0",
+]
+
+[project.optional-dependencies]
+fastapi = ["fastapi>=0.100.0"]
+flask = ["flask>=3.0"]
+django = ["django>=4.2"]
+oauth = ["httpx>=0.25.0"]
+redis = ["redis[hiredis]>=5.0"]
+all = ["urauth[fastapi,oauth,redis]"]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.27",
+]
+dev = [
+    "urauth[fastapi,oauth]",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.25.0",
+    "coverage>=7.0",
+    "ruff>=0.9",
+    "basedpyright>=1.20",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/urauth"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "SIM",   # flake8-simplify
+    "RUF",   # ruff-specific
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B008"]  # Allow function calls in defaults (FastAPI Depends pattern)
+"examples/*" = ["B008"]  # Allow function calls in defaults (FastAPI Depends pattern)
+
+[tool.ruff.lint.isort]
+known-first-party = ["urauth"]
+
+[tool.basedpyright]
+pythonVersion = "3.10"
+typeCheckingMode = "standard"
