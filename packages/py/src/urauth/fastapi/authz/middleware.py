@@ -1,46 +1,43 @@
-"""Optional middleware to pre-resolve Subject on each request."""
+"""Optional middleware to pre-resolve AuthContext on each request."""
 
 from __future__ import annotations
 
-import inspect
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
 
-from .types import SubjectResolver
+from urauth.context import AuthContext
+
+ContextResolver = Callable[[Request], Awaitable[AuthContext]]
 
 
 class AccessControlMiddleware(BaseHTTPMiddleware):
-    """Middleware that pre-resolves the Subject and stores it on request.state.
+    """Middleware that pre-resolves AuthContext and stores it on request.state.
 
-    This does NOT enforce policies — it only resolves the subject so that
+    This does NOT enforce policies — it only resolves the context so that
     guard/require/check don't need to call the resolver again.
 
     Args:
         app: The ASGI application
-        subject_resolver: Async or sync callable (Request) -> Subject
-        exclude_paths: Paths to skip subject resolution (e.g. public routes)
+        context_resolver: Async callable (Request) -> AuthContext
+        exclude_paths: Paths to skip context resolution (e.g. public routes)
     """
 
     def __init__(
         self,
         app: object,
-        subject_resolver: SubjectResolver,
+        context_resolver: ContextResolver,
         exclude_paths: Sequence[str] = (),
     ) -> None:
         super().__init__(app)  # type: ignore[arg-type]
-        self._subject_resolver = subject_resolver
+        self._context_resolver = context_resolver
         self._exclude_paths = set(exclude_paths)
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         if request.url.path not in self._exclude_paths:
-            result = self._subject_resolver(request)
-            if inspect.isawaitable(result):
-                result = await result
-            request.state.subject = result
+            ctx = await self._context_resolver(request)
+            request.state._auth_context = ctx
 
         return await call_next(request)

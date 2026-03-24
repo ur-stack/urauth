@@ -1,8 +1,10 @@
+# pyright: reportUnusedFunction=false
 from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from urauth.backends.base import TokenStore, UserFunctions
@@ -11,7 +13,6 @@ from urauth.exceptions import UnauthorizedError
 from urauth.fastapi.transport.base import Transport
 from urauth.tokens.jwt import TokenService
 from urauth.tokens.refresh import RefreshService
-from urauth.tokens.revocation import RevocationService
 
 
 class _LoginRequest(BaseModel):
@@ -40,10 +41,9 @@ def create_password_auth_router(
 
     router = APIRouter(prefix=config.auth_prefix, tags=["auth"])
     refresh_service = RefreshService(token_service, token_store, config)
-    revocation_service = RevocationService(token_store)
 
     @router.post("/login", response_model=_TokenResponse)
-    async def login(body: _LoginRequest, response: Response) -> _TokenResponse:
+    async def login(body: _LoginRequest, request: Request, response: Response) -> _TokenResponse:
         user = await user_fns.get_by_username(body.username)
         if user is None:
             raise UnauthorizedError("Invalid credentials")
@@ -65,7 +65,13 @@ def create_password_auth_router(
             family_id=family_id,
         )
 
-        # Track tokens
+        # Session metadata from the request
+        session_metadata = {
+            "ip": request.client.host if request.client else "unknown",
+            "user_agent": request.headers.get("user-agent", "unknown"),
+        }
+
+        # Track tokens — metadata is stored on the first add_token per family
         access_claims = token_service.decode_token(pair.access_token)
         refresh_claims = token_service.decode_token(pair.refresh_token)
         await token_store.add_token(
@@ -74,6 +80,7 @@ def create_password_auth_router(
             token_type="access",
             expires_at=access_claims["exp"],
             family_id=family_id,
+            metadata=session_metadata,
         )
         await token_store.add_token(
             jti=refresh_claims["jti"],
@@ -98,24 +105,39 @@ def create_password_auth_router(
             refresh_token=pair.refresh_token,
         )
 
+    _bearer = HTTPBearer(auto_error=False)
+
     @router.post("/logout", status_code=204)
-    async def logout(request: Request, response: Response) -> None:
+    async def logout(
+        request: Request,
+        response: Response,
+        _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    ) -> None:
         raw = transport.extract_token(request)
         if raw:
             try:
                 claims = token_service.decode_token(raw)
-                await revocation_service.revoke(claims["jti"], claims["exp"])
+                # Revoke entire session (access + refresh) via family
+                family_id = await token_store.get_family_id(claims["jti"])
+                if family_id:
+                    await token_store.revoke_family(family_id)
+                else:
+                    await token_store.revoke(claims["jti"], claims["exp"])
             except Exception:
                 pass
         transport.delete_token(response)
 
     @router.post("/logout-all", status_code=204)
-    async def logout_all(request: Request, response: Response) -> None:
+    async def logout_all(
+        request: Request,
+        response: Response,
+        _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    ) -> None:
         raw = transport.extract_token(request)
         if raw:
             try:
                 claims = token_service.decode_token(raw)
-                await revocation_service.revoke_all_for_user(claims["sub"])
+                await token_store.revoke_all_for_user(claims["sub"])
             except Exception:
                 pass
         transport.delete_token(response)

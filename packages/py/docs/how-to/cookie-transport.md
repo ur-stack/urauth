@@ -5,7 +5,8 @@ Use cookies instead of (or in addition to) bearer tokens.
 ## Cookie-Only Transport
 
 ```python
-from fastapi_auth import FastAPIAuth, AuthConfig, CookieTransport
+from urauth import AuthConfig
+from urauth.fastapi import FastAuth, CookieTransport
 
 config = AuthConfig(
     secret_key="your-secret",
@@ -17,11 +18,7 @@ config = AuthConfig(
     cookie_path="/",              # default
 )
 
-auth = FastAPIAuth(
-    MyBackend(),
-    config,
-    transport=CookieTransport(config),
-)
+auth = FastAuth(core, transport=CookieTransport(config))
 ```
 
 With this setup, `POST /auth/login` sets a cookie instead of returning a bearer token.
@@ -29,26 +26,59 @@ With this setup, `POST /auth/login` sets a cookie instead of returning a bearer 
 !!! warning
     Set `cookie_secure=False` only during local development over HTTP.
 
+## Pipeline Approach
+
+When using a `Pipeline`, set `transport="cookie"` on the strategy and the transport is configured automatically:
+
+```python
+from urauth import Auth, AuthConfig, Pipeline, JWTStrategy
+
+core = MyAuth(
+    config=AuthConfig(secret_key="your-secret"),
+    pipeline=Pipeline(
+        strategy=JWTStrategy(transport="cookie"),
+        password=True,
+    ),
+)
+
+auth = FastAuth(core)  # CookieTransport is auto-selected
+```
+
 ## Hybrid Transport
 
 Use bearer tokens as the primary method, with cookies as a fallback:
 
 ```python
-from fastapi_auth import HybridTransport, CookieTransport
-from fastapi_auth.transport import BearerTransport
+from urauth.fastapi import FastAuth, HybridTransport, BearerTransport, CookieTransport
 
 transport = HybridTransport(
     BearerTransport(),           # (1)!
     CookieTransport(config),     # (2)!
 )
 
-auth = FastAPIAuth(MyBackend(), config, transport=transport)
+auth = FastAuth(core, transport=transport)
 ```
 
 1. Tried first — checks the `Authorization: Bearer` header.
 2. Fallback — checks the cookie.
 
 This is useful when you have both API clients (using bearer tokens) and a browser frontend (using cookies).
+
+## Pipeline Hybrid
+
+With `Pipeline`, set `transport="hybrid"` for the same behavior:
+
+```python
+core = MyAuth(
+    config=AuthConfig(secret_key="your-secret"),
+    pipeline=Pipeline(
+        strategy=JWTStrategy(transport="hybrid"),
+        password=True,
+    ),
+)
+
+auth = FastAuth(core)  # HybridTransport is auto-selected
+```
 
 ## Cookie Configuration Fields
 
@@ -67,15 +97,15 @@ This is useful when you have both API clients (using bearer tokens) and a browse
 `TokenRefreshMiddleware` automatically refreshes near-expiry access tokens in cookies:
 
 ```python
-from fastapi_auth.middleware import TokenRefreshMiddleware
+from urauth.fastapi.middleware import TokenRefreshMiddleware
 
 app.add_middleware(
     TokenRefreshMiddleware,
     token_service=auth.token_service,
-    transport=auth.config,  # or your CookieTransport instance
+    transport=CookieTransport(auth.config),
     threshold=300,  # refresh when less than 5 minutes remain (default)
 )
 ```
 
 !!! tip
-    This only works with cookie transport — bearer tokens are returned in the response body and can't be silently refreshed.
+    This only works with cookie transport — bearer tokens are returned in the response body and cannot be silently refreshed.

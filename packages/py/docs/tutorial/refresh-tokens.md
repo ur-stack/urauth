@@ -6,8 +6,8 @@ Access tokens are short-lived (15 minutes by default). Refresh tokens let users 
 
 When a user logs in, they receive a **token pair**:
 
-- **Access token** — short-lived, used for API requests
-- **Refresh token** — long-lived (7 days by default), used only to get a new access token
+- **Access token** -- short-lived, used for API requests
+- **Refresh token** -- long-lived (7 days by default), used only to get a new access token
 
 ```json
 {
@@ -20,13 +20,33 @@ When a user logs in, they receive a **token pair**:
 ## Configuring TTLs
 
 ```python
-from fastapi_auth import AuthConfig
+from urauth.config import AuthConfig
 
 config = AuthConfig(
     secret_key="your-secret",
     access_token_ttl=900,     # 15 minutes (default)
     refresh_token_ttl=604800, # 7 days (default)
 )
+```
+
+Pass the config to your `Auth` subclass:
+
+```python
+from urauth.auth import Auth
+from urauth.backends.memory import MemoryTokenStore
+
+class MyAuth(Auth):
+    async def get_user(self, user_id):
+        ...
+
+    async def get_user_by_username(self, username):
+        ...
+
+    async def verify_password(self, user, password):
+        ...
+
+
+core = MyAuth(config=config, token_store=MemoryTokenStore())
 ```
 
 ## Refreshing Tokens
@@ -66,11 +86,31 @@ config = AuthConfig(
 ## Reuse Detection
 
 !!! danger "Replay attack protection"
-    If a revoked refresh token is used again, fastapi-auth revokes **all tokens in that family** — logging the user out of every session. This protects against token theft.
+    If a revoked refresh token is used again, urauth revokes **all tokens in that family** -- logging the user out of every session. This protects against token theft.
 
 Refresh tokens belong to a **family** (tracked by `family_id`). When rotation creates a new token, it inherits the family. If someone replays an old (revoked) refresh token, the entire family is invalidated.
 
-This requires a `TokenStore`. The built-in `MemoryTokenStore` is used by default, but you should use a persistent store in production (see [Custom Backends](../how-to/custom-backends.md)).
+This requires a `TokenStore`. The built-in `MemoryTokenStore` tracks `family_id` on every token record and supports `revoke_family(family_id)` for whole-family invalidation. Use a persistent store in production (see [Custom Backends](../how-to/custom-backends.md)).
+
+!!! note "How family tracking works in MemoryTokenStore"
+    Each token is stored with a `family_id`. When a refresh token is used, the store looks up the family via `get_family_id(jti)`. If the token is already revoked, `revoke_family()` is called to invalidate every token sharing that family ID. This is the mechanism that catches replay attacks.
+
+## Revocation Service
+
+Under the hood, urauth uses a `RevocationService` that wraps the `TokenStore`. It provides three operations:
+
+- `is_revoked(jti)` -- check if a token has been revoked
+- `revoke(jti, expires_at)` -- revoke a single token
+- `revoke_all_for_user(user_id)` -- revoke all tokens for a user
+
+The `RevocationService` is used automatically by the context builder and the auth router. You typically do not need to interact with it directly, but it is available if you need custom revocation logic:
+
+```python
+from urauth.tokens.revocation import RevocationService
+
+revocation = RevocationService(core.token_store)
+await revocation.revoke(jti="token-id", expires_at=1700000000)
+```
 
 ## Logout
 
@@ -96,16 +136,21 @@ This calls `token_store.revoke_all_for_user()`, invalidating every access and re
 
 ## Token Store
 
-The `TokenStore` protocol tracks issued and revoked tokens. The default `MemoryTokenStore` works for development but doesn't persist across restarts.
+The `TokenStore` protocol tracks issued and revoked tokens. The default `MemoryTokenStore` works for development but does not persist across restarts.
 
 ```python
-from fastapi_auth import FastAPIAuth, AuthConfig
+from urauth.auth import Auth
+from urauth.backends.memory import MemoryTokenStore
+from urauth.config import AuthConfig
+from urauth.fastapi.auth import FastAuth
 
 # Default: MemoryTokenStore (fine for development)
-auth = FastAPIAuth(MyBackend(), config)
+core = MyAuth(config=AuthConfig(secret_key="..."), token_store=MemoryTokenStore())
+auth = FastAuth(core)
 
-# Production: pass your own store
-auth = FastAPIAuth(MyBackend(), config, token_store=my_redis_store)
+# Production: pass your own store (e.g., Redis-backed)
+core = MyAuth(config=AuthConfig(secret_key="..."), token_store=my_redis_store)
+auth = FastAuth(core)
 ```
 
 See [Custom Backends](../how-to/custom-backends.md) for implementing a Redis-backed token store.
@@ -115,8 +160,9 @@ See [Custom Backends](../how-to/custom-backends.md) for implementing a Redis-bac
 - Login returns an access + refresh token pair.
 - `POST /auth/refresh` exchanges a refresh token for a new pair.
 - Token rotation (on by default) revokes old refresh tokens on use.
-- Reuse detection invalidates the entire token family if a revoked token is replayed.
+- Reuse detection invalidates the entire token family if a revoked token is replayed. `MemoryTokenStore` tracks families via `family_id`.
+- `RevocationService` is the internal facade for all revocation operations.
 - `POST /auth/logout` revokes the current token; `POST /auth/logout-all` revokes all user tokens.
 - Use a persistent `TokenStore` in production.
 
-**Next:** [OAuth2 & Social Login →](oauth2-social-login.md)
+**Next:** [OAuth2 & Social Login](oauth2-social-login.md)

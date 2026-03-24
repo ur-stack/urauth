@@ -1,39 +1,39 @@
 # Exceptions
 
-All exceptions inherit from `AuthError`, which extends FastAPI's `HTTPException`.
+All exceptions inherit from `AuthError`. Each maps to an appropriate HTTP status code and can be raised directly or will be raised automatically by guards and middleware.
 
 ## AuthError
 
-Base exception for all authentication/authorization errors.
+Base exception for all authentication and authorization errors.
 
-::: fastapi_auth.exceptions.AuthError
+::: urauth.exceptions.AuthError
 
 ## InvalidTokenError
 
 Raised when a token cannot be decoded or has an invalid structure.
 
-::: fastapi_auth.exceptions.InvalidTokenError
+::: urauth.exceptions.InvalidTokenError
 
 ## TokenExpiredError
 
 Raised when a token has passed its expiration time.
 
-::: fastapi_auth.exceptions.TokenExpiredError
+::: urauth.exceptions.TokenExpiredError
 
 ## TokenRevokedError
 
 Raised when a revoked token is used.
 
-::: fastapi_auth.exceptions.TokenRevokedError
+::: urauth.exceptions.TokenRevokedError
 
 ## UnauthorizedError
 
 Raised when no authentication credentials are provided.
 
-::: fastapi_auth.exceptions.UnauthorizedError
+::: urauth.exceptions.UnauthorizedError
 
 ## ForbiddenError
 
-Raised when the user is authenticated but lacks required permissions, roles, or scopes.
+Raised when the user is authenticated but lacks the required permissions, roles, or scopes.
 
-::: fastapi_auth.exceptions.ForbiddenError
+::: urauth.exceptions.ForbiddenError

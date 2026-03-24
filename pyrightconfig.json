@@ -1,0 +1,7 @@
+{
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "strict",
+  "include": ["packages/py/src"],
+  "venvPath": "packages/py",
+  "venv": ".venv"
+}

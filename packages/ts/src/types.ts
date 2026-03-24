@@ -7,15 +7,16 @@ export interface TokenPayload {
   type: "access" | "refresh";
   scopes?: string[];
   roles?: string[];
+  permissions?: string[];
   tenant_id?: string;
   fresh?: boolean;
+  family_id?: string;
   [key: string]: unknown;
 }
 
-/** Authenticated entity for access control. */
-export interface Subject {
-  id: string;
-  roles: string[];
-  permissions: string[];
-  attributes: Record<string, unknown>;
+/** Access + refresh token pair. */
+export interface TokenPair {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
 }

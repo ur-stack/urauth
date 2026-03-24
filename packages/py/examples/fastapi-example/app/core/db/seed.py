@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from urauth import PasswordHasher
-
-from app.core.db.base import Base, engine, async_session_factory
-from app.models.user import Role, User, UserRole
-from app.models.permission import Permission, RolePermission
+from app.core.db.base import Base, async_session_factory, engine
 from app.models.task import Task
+from app.models.user import Role, User, UserRole
+from urauth import PasswordHasher
 
 hasher = PasswordHasher()
 
@@ -25,37 +23,12 @@ async def seed_database() -> None:
         if existing.scalar_one_or_none() is not None:
             return
 
-        # ── Roles ─────────────────────────────────────────────
-        admin_role = Role(name="admin")
-        editor_role = Role(name="editor")
-        viewer_role = Role(name="viewer")
+        # ── Roles (permissions stored as JSON column) ────────
+        admin_role = Role(name="admin", permissions=["*"])
+        editor_role = Role(name="editor", permissions=["task:read", "task:write", "task:update"])
+        viewer_role = Role(name="viewer", permissions=["task:read"])
         session.add_all([admin_role, editor_role, viewer_role])
         await session.flush()
-
-        # ── Permissions ───────────────────────────────────────
-        perm_names = [
-            "tasks:read",
-            "tasks:write",
-            "tasks:update",
-            "tasks:delete",
-            "users:read",
-            "users:write",
-        ]
-        perms = {name: Permission(name=name) for name in perm_names}
-        session.add_all(perms.values())
-        await session.flush()
-
-        # ── Role → Permission mapping ─────────────────────────
-        # admin gets all permissions
-        for p in perms.values():
-            session.add(RolePermission(role_id=admin_role.id, permission_id=p.id))
-
-        # editor gets tasks:read, tasks:write, tasks:update
-        for pname in ("tasks:read", "tasks:write", "tasks:update"):
-            session.add(RolePermission(role_id=editor_role.id, permission_id=perms[pname].id))
-
-        # viewer gets tasks:read
-        session.add(RolePermission(role_id=viewer_role.id, permission_id=perms["tasks:read"].id))
 
         # ── Users ─────────────────────────────────────────────
         pw = hasher.hash("password123")

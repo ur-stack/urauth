@@ -1,3 +1,4 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportGeneralTypeIssues=false
 """Redis-backed session store (optional dependency)."""
 
 from __future__ import annotations
@@ -5,10 +6,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-try:
-    from redis.asyncio import Redis  # pyright: ignore[reportMissingImports]
-except ImportError as exc:
-    raise ImportError("redis is required for RedisSessionStore. Install with: pip install urauth[redis]") from exc
+from redis.asyncio import Redis  # pyright: ignore[reportMissingImports]
 
 
 class RedisSessionStore:

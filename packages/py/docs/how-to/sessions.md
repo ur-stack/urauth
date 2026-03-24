@@ -2,27 +2,63 @@
 
 Server-side session management as an alternative or complement to JWT tokens.
 
-## Setup
+## Pipeline Approach (Recommended)
+
+Use `SessionStrategy` with a `Pipeline` for automatic session handling:
 
 ```python
-from fastapi_auth.sessions.base import SessionManager
-from fastapi_auth.backends.memory import MemorySessionStore
-from fastapi_auth import AuthConfig
+from urauth import Auth, AuthConfig, Pipeline, SessionStrategy
+from urauth.backends.memory import MemorySessionStore
+
+core = MyAuth(
+    config=AuthConfig(
+        secret_key="your-secret",
+        session_cookie_name="session_id",  # default
+        session_ttl=86400,                 # 24 hours (default)
+        session_cookie_secure=True,        # default
+        session_cookie_httponly=True,       # default
+        session_cookie_samesite="lax",     # default
+    ),
+    session_store=MemorySessionStore(),
+    pipeline=Pipeline(
+        strategy=SessionStrategy(cookie_name="session_id"),
+        password=True,
+    ),
+)
+```
+
+Then wire it into FastAPI:
+
+```python
+from urauth.fastapi import FastAuth
+
+auth = FastAuth(core)
+router = auth.auto_router()
+app.include_router(router)
+```
+
+The pipeline generates login/logout endpoints that create and destroy sessions automatically.
+
+## Manual Session Management
+
+For finer control, use `SessionManager` directly:
+
+```python
+from urauth import AuthConfig
+from urauth.backends.memory import MemorySessionStore
+from urauth.fastapi.sessions import SessionManager
 
 config = AuthConfig(
     secret_key="your-secret",
-    session_cookie_name="session_id",  # default
-    session_ttl=86400,                 # 24 hours (default)
-    session_cookie_secure=True,        # default
-    session_cookie_httponly=True,       # default
-    session_cookie_samesite="lax",     # default
+    session_cookie_name="session_id",
+    session_ttl=86400,
 )
 
 store = MemorySessionStore()
 session_manager = SessionManager(store, config)
 ```
 
-## Creating Sessions
+### Creating Sessions
 
 ```python
 from fastapi import Response
@@ -40,7 +76,7 @@ async def login(response: Response):
 
 The session ID is set as an HTTP-only cookie on the response.
 
-## Reading Sessions
+### Reading Sessions
 
 ```python
 from fastapi import Request
@@ -53,24 +89,7 @@ async def me(request: Request):
     return {"user_id": session["user_id"]}
 ```
 
-## Session Dependency
-
-Use the built-in dependency for cleaner code:
-
-```python
-from fastapi import Depends
-from fastapi_auth.authn.session import session_dependency
-
-get_user = session_dependency(session_manager, backend)
-
-@app.get("/me")
-async def me(user=Depends(get_user)):
-    return {"id": user.id}
-```
-
-This extracts the session, loads the user from the backend, and checks that the user is active.
-
-## Destroying Sessions
+### Destroying Sessions
 
 ```python
 from fastapi import Request, Response
@@ -81,17 +100,34 @@ async def logout(request: Request, response: Response):
     return {"message": "Logged out"}
 ```
 
-## Destroy All Sessions for a User
+### Destroy All Sessions for a User
 
 ```python
 await session_manager.destroy_all_for_user(user_id="123")
 ```
 
+## Session Dependency
+
+Use the built-in dependency for cleaner code:
+
+```python
+from fastapi import Depends
+from urauth.fastapi.authn.session import session_dependency
+
+get_user = session_dependency(session_manager, user_fns)
+
+@app.get("/me")
+async def me(user=Depends(get_user)):
+    return {"id": user.id}
+```
+
+This extracts the session, loads the user via the provided `UserFunctions`, and checks that the user is active.
+
 ## Redis Session Store (Production)
 
 ```python
 from redis.asyncio import Redis
-from fastapi_auth.sessions.redis import RedisSessionStore
+from urauth.sessions.redis import RedisSessionStore
 
 redis = Redis.from_url("redis://localhost:6379")
 store = RedisSessionStore(redis, prefix="session:")
@@ -99,7 +135,7 @@ session_manager = SessionManager(store, config)
 ```
 
 !!! warning
-    `MemorySessionStore` doesn't persist across restarts. Use `RedisSessionStore` in production.
+    `MemorySessionStore` does not persist across restarts. Use `RedisSessionStore` in production.
 
 ## Session Config Fields
 

@@ -27,11 +27,11 @@ dependencies = [
 
 [project.optional-dependencies]
 fastapi = ["fastapi>=0.100.0"]
-flask = ["flask>=3.0"]
-django = ["django>=4.2"]
 oauth = ["httpx>=0.25.0"]
 redis = ["redis[hiredis]>=5.0"]
-all = ["urauth[fastapi,oauth,redis]"]
+sqlalchemy = ["sqlalchemy[asyncio]>=2.0"]
+sqlmodel = ["sqlmodel>=0.0.14"]
+all = ["urauth[fastapi,oauth,redis,sqlalchemy]"]
 docs = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
@@ -78,10 +78,16 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["B008"]  # Allow function calls in defaults (FastAPI Depends pattern)
 "examples/*" = ["B008"]  # Allow function calls in defaults (FastAPI Depends pattern)
+"src/urauth/fastapi/*" = ["B008"]  # FastAPI Depends() in function defaults is idiomatic
 
 [tool.ruff.lint.isort]
 known-first-party = ["urauth"]
 
 [tool.basedpyright]
 pythonVersion = "3.10"
-typeCheckingMode = "standard"
+typeCheckingMode = "strict"
+
+[dependency-groups]
+dev = [
+    "mkdocs>=1.6.1",
+]

@@ -1,3 +1,4 @@
+# pyright: reportUnknownMemberType=false
 from __future__ import annotations
 
 import time
@@ -5,6 +6,7 @@ import uuid
 from typing import Any
 
 import jwt
+from jwt.types import Options
 
 from urauth.config import AuthConfig
 from urauth.exceptions import InvalidTokenError, TokenExpiredError
@@ -22,10 +24,7 @@ class TokenService:
     def _build_key(config: AuthConfig) -> str | bytes:
         """Return the signing key. PyJWT accepts PEM strings for RSA/EC
         and str/bytes for HMAC directly — no wrapper objects needed."""
-        key = config.secret_key
-        if isinstance(key, (str, bytes)):
-            return key
-        raise ValueError(f"Unsupported key type: {type(key)}")
+        return config.secret_key
 
     def _base_claims(
         self,
@@ -107,8 +106,6 @@ class TokenService:
 
     def decode_token(self, token: str) -> dict[str, Any]:
         """Decode and verify a JWT, returning raw claims dict."""
-        from jwt.types import Options
-
         options = Options()
         kwargs: dict[str, Any] = {"algorithms": [self._config.algorithm]}
         if self._config.token_issuer:

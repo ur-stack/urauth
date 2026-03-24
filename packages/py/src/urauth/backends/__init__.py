@@ -1,3 +1,3 @@
-from urauth.backends.base import SessionStore, TokenStore, UserBackend
+from urauth.backends.base import SessionStore, TokenStore
 
-__all__ = ["SessionStore", "TokenStore", "UserBackend"]
+__all__ = ["SessionStore", "TokenStore"]

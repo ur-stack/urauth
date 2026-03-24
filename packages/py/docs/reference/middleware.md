@@ -6,10 +6,10 @@ HTTP middleware for CSRF protection and automatic token refresh.
 
 Double-submit cookie CSRF protection for cookie-based authentication.
 
-::: fastapi_auth.middleware.CSRFMiddleware
+::: urauth.fastapi.middleware.CSRFMiddleware
 
 ## TokenRefreshMiddleware
 
 Automatically refreshes near-expiry access tokens in cookies.
 
-::: fastapi_auth.middleware.TokenRefreshMiddleware
+::: urauth.fastapi.middleware.TokenRefreshMiddleware

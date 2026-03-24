@@ -32,6 +32,13 @@ export class UnauthorizedError extends AuthError {
   }
 }
 
+export class TokenRevokedError extends AuthError {
+  constructor(detail = "Token has been revoked") {
+    super(detail, 401);
+    this.name = "TokenRevokedError";
+  }
+}
+
 export class ForbiddenError extends AuthError {
   constructor(detail = "Forbidden") {
     super(detail, 403);

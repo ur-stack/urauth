@@ -1,4 +1,4 @@
-"""Task CRUD — demonstrates all 5 auth patterns with SQLAlchemy."""
+"""Task CRUD — demonstrates typed permission auth patterns with SQLAlchemy."""
 
 from __future__ import annotations
 
@@ -7,47 +7,53 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db.session import get_db
 from app.core.security.auth import access, auth
+from app.models.permission import Perms
 from app.schemas.task import TaskCreate, TaskUpdate
 from app.services.task import task_service
+from urauth.context import AuthContext
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
-# ── Pattern 1: requires(permissions=...) ─────────────────────
+# ── Pattern 1: @access.guard() with typed Permission ─────────
 
 
 @router.get("/")
+@access.guard(Perms.TASK_READ)
 async def list_tasks(
-    user=auth.requires(permissions=["tasks:read"]),
+    request: Request,
+    ctx: AuthContext = Depends(auth.context),
     db: AsyncSession = Depends(get_db),
 ):
     """List all public tasks + tasks owned by the current user."""
-    tasks = await task_service.list_visible(db, user.id)
+    tasks = await task_service.list_visible(db, ctx.user.id)
     return [
         {"id": t.id, "title": t.title, "status": t.status, "owner_id": t.owner_id}
         for t in tasks
     ]
 
 
-# ── Pattern 2: requires(permissions=...) ─────────────────────
+# ── Pattern 2: @access.guard() with typed write ──────────────
 
 
 @router.post("/", status_code=201)
+@access.guard(Perms.TASK_WRITE)
 async def create_task(
     body: TaskCreate,
-    user=auth.requires(permissions=["tasks:write"]),
+    request: Request,
+    ctx: AuthContext = Depends(auth.context),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new task owned by the current user."""
-    task = await task_service.create(db, body, owner_id=user.id)
+    task = await task_service.create(db, body, owner_id=ctx.user.id)
     return {"id": task.id, "title": task.title}
 
 
-# ── Pattern 3: @access.guard() decorator ─────────────────────
+# ── Pattern 3: @access.guard() with typed read ───────────────
 
 
 @router.get("/{task_id}")
-@access.guard("read")
+@access.guard(Perms.TASK_READ)
 async def get_task(
     task_id: int,
     request: Request,
@@ -67,15 +73,14 @@ async def get_task(
     }
 
 
-# ── Pattern 4: Depends(access.require()) ─────────────────────
+# ── Pattern 4: Depends(access.guard()) ───────────────────────
 
 
-@router.put("/{task_id}")
+@router.put("/{task_id}", dependencies=[Depends(access.guard(Perms.TASK_UPDATE))])
 async def update_task(
     task_id: int,
     body: TaskUpdate,
-    _=Depends(access.require("write")),
-    user=auth.current_user(),
+    ctx: AuthContext = Depends(auth.context),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a task — access checked via Depends()."""
@@ -93,10 +98,11 @@ async def update_task(
 async def delete_task(
     task_id: int,
     request: Request,
+    ctx: AuthContext = Depends(auth.context),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a task — access checked inline with access.check()."""
-    allowed = await access.check("delete", request=request)
+    allowed = await access.check(Perms.TASK_DELETE, request=request)
     if not allowed:
         raise HTTPException(status_code=403, detail="Access denied")
     deleted = await task_service.delete(db, task_id)

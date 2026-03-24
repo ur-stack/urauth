@@ -1,8 +1,8 @@
-site_name: fastapi-auth
-site_description: Unified authentication & authorization for FastAPI — JWT, OAuth2, RBAC, multi-tenant in ~15 lines of setup.
-site_url: https://grandmagus.github.io/fastapi-auth/
-repo_url: https://github.com/grandmagus/fastapi-auth
-repo_name: grandmagus/fastapi-auth
+site_name: urauth
+site_description: Framework-agnostic authentication & authorization for Python — with a first-class FastAPI adapter.
+site_url: https://grandmagus.github.io/urauth/
+repo_url: https://github.com/grandmagus/urauth
+repo_name: grandmagus/urauth
 
 theme:
   name: material
@@ -75,27 +75,38 @@ nav:
       - tutorial/index.md
       - First Steps: tutorial/first-steps.md
       - Protecting Routes: tutorial/protecting-routes.md
+      - Guards & Requirements: tutorial/guards.md
+      - Access Control: tutorial/access-control.md
       - Refresh Tokens: tutorial/refresh-tokens.md
+      - Pipeline: tutorial/pipeline.md
       - OAuth2 & Social Login: tutorial/oauth2-social-login.md
       - RBAC & Permissions: tutorial/rbac-permissions.md
+      - Relations: tutorial/relations.md
       - Multi-Tenant: tutorial/multi-tenant.md
   - How-To Guides:
       - how-to/index.md
-      - Custom Backends: how-to/custom-backends.md
+      - Custom Auth Subclass: how-to/custom-backends.md
       - Cookie Transport: how-to/cookie-transport.md
       - API Key Auth: how-to/api-key-auth.md
       - Sessions: how-to/sessions.md
+      - Rate Limiting: how-to/rate-limiting.md
       - CSRF Protection: how-to/csrf-protection.md
       - Testing: how-to/testing.md
       - Configuration: how-to/configuration.md
   - API Reference:
       - reference/index.md
-      - FastAPIAuth: reference/fastapi-auth.md
+      - Auth: reference/auth.md
+      - FastAuth: reference/fastauth.md
+      - AuthContext: reference/context.md
       - AuthConfig: reference/config.md
       - Protocols: reference/protocols.md
+      - Primitives: reference/primitives.md
+      - Role Registry: reference/role-registry.md
+      - Access Control: reference/access-control.md
+      - Pipeline: reference/pipeline.md
       - Tokens: reference/tokens.md
       - Transport: reference/transport.md
-      - RBAC: reference/rbac.md
+      - Rate Limiting: reference/ratelimit.md
       - OAuth2: reference/oauth2.md
       - Sessions: reference/sessions.md
       - Middleware: reference/middleware.md

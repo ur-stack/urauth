@@ -1,99 +1,326 @@
 # RBAC & Permissions
 
-Role-Based Access Control (RBAC) lets you define a role hierarchy and fine-grained permissions.
+Role-Based Access Control (RBAC) lets you define roles with fine-grained permissions and inheritance. urauth uses a `RoleRegistry` to declare roles statically or load them from a database, and a checker-based system to evaluate permissions at runtime.
 
-## Role Hierarchy
+## RoleRegistry Basics
 
-Define which roles inherit from which:
+The `RoleRegistry` is where you define roles and their permissions:
 
 ```python
-auth.set_rbac({
-    "admin": ["editor", "viewer"],  # (1)!
-    "editor": ["viewer"],           # (2)!
-})
+from urauth.authz.roles import RoleRegistry
+
+registry = RoleRegistry()
+
+registry.role("admin", permissions=["*"])
+registry.role("editor", permissions=["task:read", "task:write", "task:delete"], inherits=["viewer"])
+registry.role("viewer", permissions=["task:read", "dashboard:read"])
 ```
 
-1. Admin inherits all of editor's and viewer's roles.
-2. Editor inherits viewer's role.
+Key concepts:
 
-The hierarchy is **transitively expanded** — if admin inherits editor and editor inherits viewer, then admin also has the viewer role.
+- Each role has a set of **permissions** (strings in `"resource:action"` format).
+- The `inherits` parameter creates a **hierarchy** -- an editor automatically gets all of viewer's permissions.
+- The wildcard `"*"` grants all permissions.
 
-## Role Checks
+## PermissionEnum for Type Safety
+
+Instead of raw permission strings, use `PermissionEnum` for compile-time checks and autocomplete:
 
 ```python
-@app.get("/admin")
-async def admin_only(user=Depends(auth.current_user(roles=["admin"]))):
-    return {"role": "admin"}
+from urauth.authz.permission_enum import PermissionEnum
 
-@app.get("/editor")
-async def editor_area(user=Depends(auth.current_user(roles=["editor"]))):
-    return {"role": "editor or above"}
+class Perms(PermissionEnum):
+    TASK_READ = ("task", "read")
+    TASK_WRITE = ("task", "write")
+    TASK_DELETE = ("task", "delete")
+    DASHBOARD_READ = ("dashboard", "read")
+    USER_READ = ("user", "read")
+    USER_WRITE = ("user", "write")
 ```
 
-With the hierarchy above, an admin can access both endpoints. An editor can access `/editor` but not `/admin`.
-
-!!! tip
-    Role checks use the user's JWT `roles` claim. Make sure your backend includes roles when creating tokens. The `password_auth_router()` reads roles from users that implement the `UserWithRoles` protocol.
-
-## Permissions
-
-For finer-grained control, map roles to permissions:
+Each member's `.value` is a `Permission` object. Use them in role definitions:
 
 ```python
-auth.set_permissions({
-    "admin": {"*"},                          # (1)!
-    "editor": {"posts:read", "posts:write"},
-    "viewer": {"posts:read"},
-})
+registry = RoleRegistry()
+registry.role("admin", permissions=[Perms.TASK_READ, Perms.TASK_WRITE, Perms.USER_READ, Perms.USER_WRITE])
+registry.role("viewer", permissions=[Perms.TASK_READ, Perms.DASHBOARD_READ])
 ```
 
-1. The wildcard `*` grants all permissions.
-
-Then require specific permissions on your routes:
+Or mix strings and enums:
 
 ```python
-@app.get("/posts")
-async def list_posts(user=Depends(auth.current_user(permissions=["posts:read"]))):
+registry.role("admin", permissions=["*"])
+registry.role("editor", permissions=[Perms.TASK_READ, Perms.TASK_WRITE, "task:delete"], inherits=["viewer"])
+```
+
+## Wire to FastAuth
+
+Create an `AccessControl` instance from the registry:
+
+```python
+from urauth.auth import Auth
+from urauth.config import AuthConfig
+from urauth.backends.memory import MemoryTokenStore
+from urauth.fastapi.auth import FastAuth
+
+class MyAuth(Auth):
+    async def get_user(self, user_id):
+        ...
+
+    async def get_user_by_username(self, username):
+        ...
+
+    async def verify_password(self, user, password):
+        ...
+
+    async def get_user_roles(self, user):
+        """Load roles from your database."""
+        from urauth.authz.primitives import Role
+        return [Role(name) for name in user.roles]
+
+
+core = MyAuth(config=AuthConfig(secret_key="..."), token_store=MemoryTokenStore())
+auth = FastAuth(core)
+access = auth.access_control(registry=registry)
+```
+
+The `access_control()` method builds a `RoleExpandingChecker` from the registry, which handles role expansion and permission matching.
+
+## Using Guards
+
+Guards work as both decorators and FastAPI dependencies.
+
+### With PermissionEnum
+
+```python
+from fastapi import Depends, FastAPI
+from starlette.requests import Request
+
+app = FastAPI()
+
+@app.get("/tasks")
+@access.guard(Perms.TASK_READ)
+async def list_tasks(request: Request):
+    return {"tasks": [...]}
+
+@app.post("/tasks")
+@access.guard(Perms.TASK_WRITE)
+async def create_task(request: Request):
+    return {"created": True}
+```
+
+### With string arguments
+
+```python
+@app.get("/tasks")
+@access.guard("task", "read")
+async def list_tasks(request: Request):
+    return {"tasks": [...]}
+```
+
+### As a dependency
+
+```python
+@app.delete(
+    "/tasks/{task_id}",
+    dependencies=[Depends(access.guard(Perms.TASK_DELETE))],
+)
+async def delete_task(task_id: str):
+    return {"deleted": task_id}
+```
+
+!!! note
+    When using `@access.guard()` as a decorator, the endpoint function must have a `request: Request` parameter so the guard can resolve the auth context.
+
+## Composable Requirements
+
+For complex authorization rules, use `Permission`, `Role`, and the `&` (AND) / `|` (OR) operators directly with `auth.require()`:
+
+```python
+from urauth.authz.primitives import Permission, Role
+
+can_read_tasks = Permission("task", "read")
+can_write_tasks = Permission("task", "write")
+is_admin = Role("admin")
+is_editor = Role("editor")
+
+# Must have BOTH the permission AND the role
+@app.put("/tasks/{task_id}")
+@auth.require(can_write_tasks & is_editor)
+async def update_task(request: Request):
     ...
 
-@app.post("/posts")
-async def create_post(user=Depends(auth.current_user(permissions=["posts:write"]))):
+# Must have EITHER admin role OR both permission and editor role
+@app.delete("/tasks/{task_id}")
+@auth.require(is_admin | (can_write_tasks & is_editor))
+async def delete_task(request: Request):
     ...
-
-@app.delete("/system/cache")
-async def clear_cache(user=Depends(auth.current_user(permissions=["system:admin"]))):
-    ...  # only admin (via wildcard) can access this
 ```
 
-## Combining Roles and Permissions
-
-You can use both in the same dependency:
+Use `require_any` as a shorthand for OR-ing multiple requirements:
 
 ```python
-@app.put("/posts/{id}")
-async def edit_post(
-    id: str,
-    user=Depends(auth.current_user(roles=["editor"], permissions=["posts:write"])),
-):
+admin_perm = Permission("admin", "access")
+editor_and_owner = Permission("task", "write") & Role("editor")
+
+@app.delete("/tasks/{task_id}")
+@auth.require_any(admin_perm, editor_and_owner)
+async def delete_task(request: Request):
     ...
 ```
 
-Both checks must pass — the user needs the `editor` role (or higher) **and** the `posts:write` permission.
+## Loading Roles from Your Database
+
+Override `get_user_roles()` in your `Auth` subclass to load roles dynamically:
+
+```python
+from urauth.authz.primitives import Role
+
+class MyAuth(Auth):
+    async def get_user_roles(self, user):
+        # Query your database
+        role_records = await db.execute(
+            "SELECT role_name FROM user_roles WHERE user_id = :uid",
+            {"uid": user.id},
+        )
+        return [Role(record.role_name) for record in role_records]
+```
+
+The default implementation reads `user.roles` and wraps each string as a `Role` object. If your user model already has a `roles` attribute with string names, the default works without any override.
+
+## Registry Composition
+
+Merge registries from different modules using `include()`:
+
+```python
+# tasks/permissions.py
+task_registry = RoleRegistry()
+task_registry.role("task_admin", permissions=["task:*"])
+task_registry.role("task_viewer", permissions=["task:read"])
+
+# users/permissions.py
+user_registry = RoleRegistry()
+user_registry.role("user_admin", permissions=["user:*"])
+user_registry.role("user_viewer", permissions=["user:read"])
+
+# main.py
+registry = RoleRegistry()
+registry.role("admin", permissions=["*"])
+registry.include(task_registry)
+registry.include(user_registry)
+```
+
+`include()` uses **union semantics** -- if the same role exists in both registries, their permissions are merged (unioned). Hierarchy entries are also merged.
+
+## DB-Backed Roles
+
+For roles that change at runtime (e.g., admin-configurable roles), use `with_loader()`:
+
+```python
+from urauth.authz.loader import RoleLoader, RoleCache
+
+class DBRoleLoader:
+    """Load roles from your database."""
+
+    async def load_roles(self) -> dict[str, set[str]]:
+        rows = await db.execute("SELECT role_name, permission FROM role_permissions")
+        roles: dict[str, set[str]] = {}
+        for row in rows:
+            roles.setdefault(row.role_name, set()).add(row.permission)
+        return roles
+
+    async def load_hierarchy(self) -> dict[str, list[str]]:
+        rows = await db.execute("SELECT parent_role, child_role FROM role_hierarchy")
+        hierarchy: dict[str, list[str]] = {}
+        for row in rows:
+            hierarchy.setdefault(row.parent_role, []).append(row.child_role)
+        return hierarchy
+
+
+class MemoryRoleCache:
+    """Simple in-memory cache for role data."""
+
+    def __init__(self):
+        self._data = {}
+
+    async def get(self, key):
+        return self._data.get(key)
+
+    async def set(self, key, value, ttl):
+        self._data[key] = value
+
+    async def invalidate(self, key):
+        self._data.pop(key, None)
+```
+
+Wire it up and load during app startup:
+
+```python
+from contextlib import asynccontextmanager
+
+registry = RoleRegistry()
+registry.role("admin", permissions=["*"])  # static roles still work
+registry.with_loader(DBRoleLoader(), cache=MemoryRoleCache(), cache_ttl=300)
+
+@asynccontextmanager
+async def lifespan(app):
+    await registry.load()  # load DB roles at startup
+    yield
+
+app = FastAPI(lifespan=lifespan)
+```
+
+Static roles defined with `registry.role()` take precedence over DB-loaded roles with the same name. Call `await registry.reload()` to invalidate the cache and re-load from the database.
+
+## Wildcard Permissions
+
+Wildcards let you grant broad access without listing every permission:
+
+| Pattern | Matches |
+|---------|---------|
+| `"*"` | Everything -- all resources and actions |
+| `"task:*"` | All actions on the `task` resource (`task:read`, `task:write`, `task:delete`, etc.) |
+| `"task:read"` | Exact match only |
+
+```python
+registry.role("admin", permissions=["*"])                    # can do anything
+registry.role("task_admin", permissions=["task:*"])          # all task operations
+registry.role("viewer", permissions=["task:read", "user:read"])  # specific permissions
+```
 
 ## How Permission Resolution Works
 
-1. The user's JWT contains a `roles` claim (e.g., `["editor"]`)
-2. `RBACManager.effective_roles()` expands the roles using the hierarchy (e.g., `{"editor", "viewer"}`)
-3. `PermissionManager.permissions_for_roles()` collects all permissions for those roles
-4. The required permission is checked against the collected set
-5. A wildcard `*` in any role's permissions matches everything
+urauth provides two checkers:
+
+### StringChecker (default)
+
+The `StringChecker` matches the required `"resource:action"` string against the permissions in the `AuthContext`. It supports exact match and wildcards (`"*"`, `"resource:*"`).
+
+Use `StringChecker` when permissions are stored directly on users or in JWT claims.
+
+### RoleExpandingChecker
+
+The `RoleExpandingChecker` is produced by `registry.build_checker()` and used automatically when you call `auth.access_control(registry=registry)`. It:
+
+1. Reads the user's role names from `AuthContext.roles`
+2. Expands roles using the hierarchy (e.g., `["editor"]` becomes `{"editor", "viewer"}`)
+3. Collects all permissions from the expanded role set
+4. Also includes direct permissions from `AuthContext.permissions`
+5. Checks the required `"resource:action"` against the collected set (with wildcard support)
+
+The expansion is computed once at startup and cached, so hierarchy lookups are O(1) at request time.
 
 ## Recap
 
-- `auth.set_rbac(hierarchy)` defines role inheritance with transitive expansion.
-- `current_user(roles=[...])` checks against the expanded role set.
-- `auth.set_permissions(mapping)` maps roles to fine-grained permissions.
-- `current_user(permissions=[...])` checks against the collected permission set.
-- The wildcard `*` grants all permissions.
+- `RoleRegistry` defines roles with permissions and inheritance.
+- `PermissionEnum` provides type-safe permission definitions.
+- `auth.access_control(registry=registry)` creates an `AccessControl` with a `RoleExpandingChecker`.
+- `@access.guard(Perms.X)` and `@access.guard("resource", "action")` protect endpoints.
+- `auth.require()` supports composable requirements with `&` (AND) and `|` (OR).
+- Override `get_user_roles()` to load roles from your database.
+- `registry.include()` merges registries with union semantics.
+- `registry.with_loader()` + `await registry.load()` enables DB-backed roles with caching.
+- Wildcards (`"*"`, `"resource:*"`) grant broad access.
+- `RoleExpandingChecker` resolves roles to permissions via hierarchy; `StringChecker` matches directly.
 
-**Next:** [Multi-Tenant →](multi-tenant.md)
+**Next:** [Relations](relations.md)

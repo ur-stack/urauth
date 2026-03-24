@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 from fastapi import Request
 
@@ -17,7 +18,7 @@ class TenantResolver:
     def __init__(self, config: AuthConfig) -> None:
         self._config = config
 
-    def current_tenant(self) -> Callable:
+    def current_tenant(self) -> Callable[..., Any]:
         """Return a FastAPI dependency that resolves the current tenant ID."""
         config = self._config
 

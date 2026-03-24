@@ -1,13 +1,13 @@
 # Testing
 
-fastapi-auth provides test utilities to simplify authentication in your test suite.
+urauth provides test utilities to simplify authentication in your test suite.
 
 ## `create_test_token()`
 
 Generate a token pair without setting up a full auth system:
 
 ```python
-from fastapi_auth.testing import create_test_token
+from urauth.fastapi.testing import create_test_token
 
 pair = create_test_token(
     user_id="user-1",
@@ -39,25 +39,82 @@ headers = {"Authorization": f"Bearer {pair.access_token}"}
 
 ## `AuthOverride`
 
-Override `auth.current_user()` in your tests without real tokens:
+Override auth dependencies in your tests without real tokens:
 
 ```python
-from fastapi_auth.testing import AuthOverride
+from urauth.fastapi.testing import AuthOverride
 
 override = AuthOverride(auth, app)
 
 with override.as_user(user, roles=["admin"]):
-    # All current_user() calls return this user
+    # All current_user() and context() calls return this user
     response = client.get("/admin")
     assert response.status_code == 200
 ```
 
-If you don't have a user object, `AuthOverride` creates a mock:
+If you do not have a user object, `AuthOverride` creates a mock:
 
 ```python
 with override.as_user(user_id="test-123", roles=["editor"], scopes=["posts:read"]):
     response = client.get("/editor/drafts")
 ```
+
+## Testing Guards
+
+Test endpoints protected by `@auth.require()` or `@access.guard()`:
+
+```python
+from urauth.fastapi.testing import AuthOverride
+
+override = AuthOverride(auth, app)
+
+
+def test_require_guard_allows(client):
+    """Test that a user with the right role passes @auth.require()."""
+    with override.as_user(user_id="alice", roles=["admin"]):
+        response = client.get("/admin/dashboard")
+        assert response.status_code == 200
+
+
+def test_require_guard_denies(client):
+    """Test that a user without the right role is rejected."""
+    with override.as_user(user_id="bob", roles=["viewer"]):
+        response = client.get("/admin/dashboard")
+        assert response.status_code == 403
+
+
+def test_access_guard_allows(client):
+    """Test that a user with the right permission passes @access.guard()."""
+    with override.as_user(user_id="alice", roles=["editor"]):
+        response = client.post("/tasks")
+        assert response.status_code == 200
+```
+
+## Testing with AuthContext
+
+Build an `AuthContext` manually for unit tests that do not need HTTP:
+
+```python
+from urauth import AuthContext
+from urauth.authz.primitives import Permission, Role
+
+ctx = AuthContext(
+    user=mock_user,
+    roles=[Role("admin")],
+    permissions=[
+        Permission.from_str("task:read"),
+        Permission.from_str("task:write"),
+    ],
+)
+
+# Test context methods directly
+assert ctx.is_authenticated()
+assert ctx.has_role("admin")
+assert ctx.has_permission("task:read")
+assert ctx.satisfies(can_read_tasks & is_admin)
+```
+
+This is useful for testing authorization logic (checkers, requirements) in isolation without starting a FastAPI app.
 
 ## Full Pytest Example
 
@@ -68,7 +125,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import app, auth
-from fastapi_auth.testing import AuthOverride
+from urauth.fastapi.testing import AuthOverride
 
 
 @pytest.fixture
@@ -120,7 +177,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app import app, auth
-from fastapi_auth.testing import AuthOverride
+from urauth.fastapi.testing import AuthOverride
 
 
 @pytest.fixture

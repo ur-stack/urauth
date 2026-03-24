@@ -1,27 +1,9 @@
 # OAuth2
 
-OAuth2/OIDC social login support.
+OAuth2/OIDC social login support. OAuth2 provider models are documented under [Pipeline](pipeline.md#oauth-providers). The pipeline auto-generates OAuth routes when `OAuthLogin` is configured with one or more providers.
 
-## OAuthManager
+## TenantResolver
 
-Manages OAuth provider registration and the authorization flow.
+Resolves the current tenant from the request for multi-tenant applications.
 
-::: fastapi_auth.authn.oauth2.client.OAuthManager
-
-## OAuthUserInfo
-
-Standardized user info returned by OAuth providers.
-
-::: fastapi_auth.authn.oauth2.client.OAuthUserInfo
-
-## AccountLinker
-
-Links OAuth accounts to local users by verified email.
-
-::: fastapi_auth.authn.oauth2.account_link.AccountLinker
-
-## Provider Defaults
-
-Pre-configured settings for supported providers.
-
-::: fastapi_auth.authn.oauth2.providers.get_provider_defaults
+::: urauth.fastapi.authz.multi_tenant.TenantResolver

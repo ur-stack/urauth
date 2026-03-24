@@ -1,15 +1,15 @@
 # Testing
 
-Utilities for testing authenticated endpoints.
+Utilities for testing authenticated FastAPI endpoints without running a full auth stack.
 
 ## create_test_token
 
 Generate a token pair for testing without full auth setup.
 
-::: fastapi_auth.testing.create_test_token
+::: urauth.fastapi.testing.create_test_token
 
 ## AuthOverride
 
-Context manager that overrides `current_user()` dependencies in tests.
+Context manager that overrides auth dependencies in tests, letting you simulate any user, role, or permission state.
 
-::: fastapi_auth.testing.AuthOverride
+::: urauth.fastapi.testing.AuthOverride

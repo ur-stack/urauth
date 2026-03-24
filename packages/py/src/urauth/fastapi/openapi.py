@@ -38,7 +38,7 @@ def register_security_schemes(app: FastAPI, *, api_key_header: str | None = None
         # Apply globally
         schema.setdefault("security", [])
         for name in schemes:
-            entry = {name: []}
+            entry: dict[str, list[str]] = {name: []}
             if entry not in schema["security"]:
                 schema["security"].append(entry)
 

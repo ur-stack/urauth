@@ -7,8 +7,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.v1.router import api_router
-from app.core.security.auth import auth
 from app.core.db.seed import seed_database
+from app.core.security.auth import auth
 
 
 @asynccontextmanager

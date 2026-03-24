@@ -5,8 +5,8 @@ Protect cookie-based authentication from Cross-Site Request Forgery attacks.
 ## Enable CSRF Middleware
 
 ```python
-from fastapi_auth import AuthConfig
-from fastapi_auth.middleware import CSRFMiddleware
+from urauth import AuthConfig
+from urauth.fastapi.middleware import CSRFMiddleware
 
 config = AuthConfig(
     secret_key="your-secret",
@@ -20,9 +20,9 @@ app.add_middleware(CSRFMiddleware, config=config)
 
 ## How It Works (Double-Submit Cookie)
 
-1. On safe requests (`GET`, `HEAD`, `OPTIONS`), the middleware sets a `csrf_token` cookie if one doesn't exist.
+1. On safe requests (`GET`, `HEAD`, `OPTIONS`), the middleware sets a `csrf_token` cookie if one does not exist.
 2. On unsafe requests (`POST`, `PUT`, `DELETE`, `PATCH`), the middleware checks that the `X-CSRF-Token` header matches the `csrf_token` cookie.
-3. If they don't match (or the header is missing), the request is rejected with `403 Forbidden`.
+3. If they do not match (or the header is missing), the request is rejected with `403 Forbidden`.
 
 !!! info
     The double-submit pattern works because an attacker can trigger a request with the cookie (browsers send cookies automatically), but cannot read the cookie value to set the header.

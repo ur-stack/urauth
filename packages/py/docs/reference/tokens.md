@@ -1,27 +1,33 @@
 # Tokens
 
-JWT token creation, validation, and refresh management.
+JWT token creation, validation, refresh management, and revocation.
 
 ## TokenService
 
 Creates and validates JWT access and refresh tokens.
 
-::: fastapi_auth.tokens.jwt.TokenService
+::: urauth.tokens.jwt.TokenService
 
 ## RefreshService
 
 Handles refresh token rotation with reuse detection.
 
-::: fastapi_auth.tokens.refresh.RefreshService
+::: urauth.tokens.refresh.RefreshService
+
+## RevocationService
+
+Manages token revocation and blacklisting.
+
+::: urauth.tokens.revocation.RevocationService
 
 ## TokenPayload
 
 Typed representation of a decoded access token.
 
-::: fastapi_auth.types.TokenPayload
+::: urauth.types.TokenPayload
 
 ## TokenPair
 
 An access + refresh token pair returned by login and refresh operations.
 
-::: fastapi_auth.types.TokenPair
+::: urauth.types.TokenPair

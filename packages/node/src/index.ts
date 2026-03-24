@@ -8,7 +8,8 @@
  */
 
 // Re-export core types from @urauth/ts
-export type { TokenPayload, Subject } from "@urauth/ts";
+export type { TokenPayload } from "@urauth/ts";
+export { AuthContext } from "@urauth/ts";
 export { AuthError, InvalidTokenError, TokenExpiredError, UnauthorizedError, ForbiddenError } from "@urauth/ts";
 export { verifyToken } from "@urauth/ts";
 export type { AuthConfig } from "@urauth/ts";

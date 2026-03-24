@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hmac
 import secrets
+import time
 from typing import Any
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -42,7 +44,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         cookie_token = request.cookies.get(self._cookie_name)
         header_token = request.headers.get(self._header_name)
 
-        if not cookie_token or not header_token or cookie_token != header_token:
+        if not cookie_token or not header_token or not hmac.compare_digest(cookie_token, header_token):
             return Response(content="CSRF validation failed", status_code=403)
 
         return await call_next(request)
@@ -75,8 +77,6 @@ class TokenRefreshMiddleware(BaseHTTPMiddleware):
             return response
 
         try:
-            import time
-
             claims = self._token_service.decode_token(raw_token)
             remaining = claims.get("exp", 0) - time.time()
             if 0 < remaining < self._threshold:

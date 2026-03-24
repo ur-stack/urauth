@@ -1,22 +1,28 @@
-"""Permission and RolePermission models."""
+"""Typed permission definitions using PermissionEnum."""
 
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+from urauth.authz import Action, PermissionEnum, Resource
 
-from app.core.db.base import Base
+# ── Resources ────────────────────────────────────────────────
+user = Resource("user")
+task = Resource("task")
+
+# ── Actions ──────────────────────────────────────────────────
+read = Action("read")
+write = Action("write")
+update = Action("update")
+delete = Action("delete")
+list_ = Action("list")
 
 
-class RolePermission(Base):
-    __tablename__ = "role_permissions"
+class Perms(PermissionEnum):
+    """Application permissions — typed, IDE-friendly, string-compatible."""
 
-    role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"), primary_key=True)
-    permission_id: Mapped[int] = mapped_column(ForeignKey("permissions.id"), primary_key=True)
-
-
-class Permission(Base):
-    __tablename__ = "permissions"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    USER_READ = (user, read)
+    USER_LIST = (user, list_)
+    USER_DELETE = (user, delete)
+    TASK_READ = (task, read)
+    TASK_WRITE = (task, write)
+    TASK_UPDATE = (task, update)
+    TASK_DELETE = (task, delete)

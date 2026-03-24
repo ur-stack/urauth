@@ -1,7 +1,5 @@
 # AuthConfig
 
-Configuration class based on Pydantic Settings. All fields can be set via environment variables with the `AUTH_` prefix.
+Configuration class based on pydantic-settings. All fields can be set via environment variables with the `AUTH_` prefix (e.g., `AUTH_SECRET_KEY`, `AUTH_ACCESS_TOKEN_EXPIRE_MINUTES`).
 
-See [Configuration guide](../how-to/configuration.md) for a complete table of all fields.
-
-::: fastapi_auth.config.AuthConfig
+::: urauth.config.AuthConfig

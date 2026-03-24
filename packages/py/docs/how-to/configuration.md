@@ -94,7 +94,7 @@ AUTH_TENANT_ENABLED=false
 ## Usage
 
 ```python
-from fastapi_auth import AuthConfig
+from urauth import AuthConfig
 
 # From code
 config = AuthConfig(

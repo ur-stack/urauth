@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.routing import APIRoute
 
 from urauth.config import AuthConfig
 from urauth.tokens.jwt import TokenService
@@ -25,7 +26,7 @@ def create_test_token(
     access_ttl: int = 3600,
     refresh_ttl: int = 86400,
 ) -> TokenPair:
-    """Create a token pair for testing without needing a full FastAPIAuth setup."""
+    """Create a token pair for testing without needing a full FastAuth setup."""
     config = AuthConfig(
         secret_key=secret_key,
         algorithm=algorithm,
@@ -93,8 +94,6 @@ class _AuthOverrideContext:
 
     def __enter__(self) -> _AuthOverrideContext:
         user = self._user
-        from fastapi.routing import APIRoute
-
         for route in self._app.routes:
             if not isinstance(route, APIRoute):
                 continue
@@ -102,8 +101,11 @@ class _AuthOverrideContext:
                 call = dep.call
                 if call is None:
                     continue
-                # Check if this callable was produced by our CurrentUserDependency
-                if hasattr(call, "__qualname__") and "CurrentUserDependency" in call.__qualname__:
+                # Check if this callable was produced by FastAuth
+                is_auth_dep = hasattr(call, "__qualname__") and (
+                    "current_user" in call.__qualname__ or "context" in call.__qualname__
+                )
+                if is_auth_dep:
 
                     async def _override() -> Any:
                         return user

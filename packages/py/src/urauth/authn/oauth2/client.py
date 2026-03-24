@@ -100,9 +100,7 @@ class OAuthManager:
         metadata = await self._discover_metadata(provider_name)
         return metadata.get(metadata_key)
 
-    def build_authorize_params(
-        self, provider: str, redirect_uri: str
-    ) -> tuple[str, str, str]:
+    def build_authorize_params(self, provider: str, redirect_uri: str) -> tuple[str, str, str]:
         """Build authorization URL, state, and code_verifier for the provider.
 
         Returns (authorize_url, state, code_verifier). The caller is responsible
@@ -115,9 +113,7 @@ class OAuthManager:
 
         return state, code_verifier, config.get("client_id", "")
 
-    async def authorize_redirect_url(
-        self, provider: str, redirect_uri: str, state: str, code_verifier: str
-    ) -> str:
+    async def authorize_redirect_url(self, provider: str, redirect_uri: str, state: str, code_verifier: str) -> str:
         """Build the full authorization URL."""
         config = self._get_provider(provider)
 

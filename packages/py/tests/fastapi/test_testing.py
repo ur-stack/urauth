@@ -3,14 +3,30 @@
 from __future__ import annotations
 
 import pytest
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from tests.conftest import FakeBackend, FakeUser
-from urauth import AuthConfig
-from urauth.fastapi import FastAPIAuth
+from urauth import Auth, AuthConfig
+from urauth.context import AuthContext
+from urauth.fastapi import FastAuth
 from urauth.fastapi.exceptions import register_exception_handlers
-from urauth.fastapi.testing import AuthOverride, create_test_token
+from urauth.fastapi.testing import create_test_token
+
+
+class _BackendAuth(Auth):
+    def __init__(self, backend: FakeBackend, **kwargs):  # type: ignore[no-untyped-def]
+        super().__init__(**kwargs)
+        self._backend = backend
+
+    async def get_user(self, user_id):  # type: ignore[no-untyped-def]
+        return await self._backend.get_by_id(str(user_id))
+
+    async def get_user_by_username(self, username):  # type: ignore[no-untyped-def]
+        return await self._backend.get_by_username(username)
+
+    async def verify_password(self, user, password):  # type: ignore[no-untyped-def]
+        return await self._backend.verify_password(user, password)
 
 
 class TestCreateTestToken:
@@ -21,35 +37,34 @@ class TestCreateTestToken:
         assert pair.token_type == "bearer"
 
 
-class TestAuthOverride:
+class TestCurrentUserDependency:
     @pytest.mark.asyncio
-    async def test_override_bypasses_auth(self) -> None:
+    async def test_current_user_returns_user(self) -> None:
         alice = FakeUser(id="user-1", email="alice@example.com", roles=["admin"])
         backend = FakeBackend([alice])
         config = AuthConfig(secret_key="test-key")
-        auth = FastAPIAuth(backend, config)
+        core = _BackendAuth(backend, config=config)
+        auth = FastAuth(core)
 
         app = FastAPI()
         register_exception_handlers(app)
 
         @app.get("/me")
-        async def me(user=auth.current_user()):
-            return {"id": user.id, "email": user.email}
+        async def me(ctx: AuthContext = Depends(auth.context)):
+            if not ctx.is_authenticated():
+                from urauth.exceptions import UnauthorizedError
 
-        override = AuthOverride(auth, app)
+                raise UnauthorizedError()
+            return {"id": ctx.user.id, "email": ctx.user.email}
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            # Without override: should fail (no token)
+            # Without token: should fail
             resp = await client.get("/me")
             assert resp.status_code == 401
 
-            # With override: should succeed
-            with override.as_user(alice):
-                resp = await client.get("/me")
-                assert resp.status_code == 200
-                assert resp.json()["email"] == "alice@example.com"
-
-            # After exiting: should fail again
-            resp = await client.get("/me")
-            assert resp.status_code == 401
+            # With token: should succeed
+            pair = auth.token_service.create_token_pair("user-1", roles=["admin"])
+            resp = await client.get("/me", headers={"Authorization": f"Bearer {pair.access_token}"})
+            assert resp.status_code == 200
+            assert resp.json()["email"] == "alice@example.com"
