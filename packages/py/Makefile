@@ -22,14 +22,14 @@ typecheck: ## Type-check with basedpyright
 
 check: lint typecheck ## All static checks
 
-test: ## Run tests
-	uv run pytest
+test: ## Run tests (parallel)
+	uv run pytest -n auto
 
-test-verbose: ## Run tests (verbose)
-	uv run pytest -v
+test-verbose: ## Run tests (verbose, parallel)
+	uv run pytest -n auto -v
 
-test-cov: ## Run tests with coverage
-	uv run coverage run -m pytest && uv run coverage report
+test-cov: ## Run tests with coverage (parallel)
+	uv run pytest -n auto --cov=urauth --cov-report=term-missing --cov-report=html
 
 docs: ## Build docs
 	uv run mkdocs build

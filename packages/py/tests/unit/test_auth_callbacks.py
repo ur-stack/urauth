@@ -30,6 +30,30 @@ USERS: dict[str, FakeUser] = {
 }
 
 
+def _get_user(uid: Any) -> FakeUser | None:
+    return USERS.get(str(uid))
+
+
+def _get_user_by_username_match(name: Any) -> FakeUser | None:
+    return next((u for u in USERS.values() if u.email == name), None)
+
+
+def _get_user_by_username_none(name: Any) -> None:
+    return None
+
+
+def _verify_password_true(user: Any, pw: Any) -> bool:
+    return pw == "secret"
+
+
+def _verify_password_false(user: Any, pw: Any) -> bool:
+    return False
+
+
+def _get_user_none(uid: Any) -> None:
+    return None
+
+
 # ── Sync callbacks ──────────────────────────────────────────────
 
 
@@ -37,9 +61,9 @@ class TestSyncCallbacks:
     def test_basic_setup(self) -> None:
         auth = Auth(
             config=AuthConfig(secret_key=SECRET),
-            get_user=lambda uid: USERS.get(str(uid)),
-            get_user_by_username=lambda name: next((u for u in USERS.values() if u.email == name), None),
-            verify_password=lambda user, pw: pw == "secret",
+            get_user=_get_user,
+            get_user_by_username=_get_user_by_username_match,
+            verify_password=_verify_password_true,
         )
         token = auth.token_service.create_token_pair("user-1")
         ctx = auth.build_context_sync(token.access_token)
@@ -49,9 +73,9 @@ class TestSyncCallbacks:
     def test_user_not_found(self) -> None:
         auth = Auth(
             config=AuthConfig(secret_key=SECRET),
-            get_user=lambda uid: None,
-            get_user_by_username=lambda name: None,
-            verify_password=lambda user, pw: False,
+            get_user=_get_user_none,
+            get_user_by_username=_get_user_by_username_none,
+            verify_password=_verify_password_false,
         )
         token = auth.token_service.create_token_pair("nonexistent")
         with pytest.raises(UnauthorizedError):
@@ -59,12 +83,16 @@ class TestSyncCallbacks:
 
     def test_custom_roles(self) -> None:
         admin_role = Role("admin", [Permission("user:read"), Permission("user:write")])
+
+        def _get_user_roles(user: Any) -> list[Role]:
+            return [admin_role] if "admin" in user.roles else []
+
         auth = Auth(
             config=AuthConfig(secret_key=SECRET),
-            get_user=lambda uid: USERS.get(str(uid)),
-            get_user_by_username=lambda name: None,
-            verify_password=lambda user, pw: False,
-            get_user_roles=lambda user: [admin_role] if "admin" in user.roles else [],
+            get_user=_get_user,
+            get_user_by_username=_get_user_by_username_none,
+            verify_password=_verify_password_false,
+            get_user_roles=_get_user_roles,
         )
         token = auth.token_service.create_token_pair("user-1")
         ctx = auth.build_context_sync(token.access_token)
@@ -73,12 +101,16 @@ class TestSyncCallbacks:
 
     def test_custom_permissions(self) -> None:
         extra_perm = Permission("special:access")
+
+        def _get_user_permissions(user: Any) -> list[Permission]:
+            return [extra_perm]
+
         auth = Auth(
             config=AuthConfig(secret_key=SECRET),
-            get_user=lambda uid: USERS.get(str(uid)),
-            get_user_by_username=lambda name: None,
-            verify_password=lambda user, pw: False,
-            get_user_permissions=lambda user: [extra_perm],
+            get_user=_get_user,
+            get_user_by_username=_get_user_by_username_none,
+            verify_password=_verify_password_false,
+            get_user_permissions=_get_user_permissions,
         )
         token = auth.token_service.create_token_pair("user-1")
         ctx = auth.build_context_sync(token.access_token)
@@ -96,8 +128,8 @@ class TestAsyncCallbacks:
         auth = Auth(
             config=AuthConfig(secret_key=SECRET),
             get_user=get_user,
-            get_user_by_username=lambda name: next((u for u in USERS.values() if u.email == name), None),
-            verify_password=lambda user, pw: pw == "secret",
+            get_user_by_username=_get_user_by_username_match,
+            verify_password=_verify_password_true,
         )
         token = auth.token_service.create_token_pair("user-1")
         ctx = await auth.build_context(token.access_token)
@@ -127,9 +159,9 @@ class TestAsyncCallbacks:
     async def test_optional_no_token(self) -> None:
         auth = Auth(
             config=AuthConfig(secret_key=SECRET),
-            get_user=lambda uid: USERS.get(str(uid)),
-            get_user_by_username=lambda name: None,
-            verify_password=lambda user, pw: False,
+            get_user=_get_user,
+            get_user_by_username=_get_user_by_username_none,
+            verify_password=_verify_password_false,
         )
         ctx = await auth.build_context(None, optional=True)
         assert not ctx.is_authenticated()

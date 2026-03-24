@@ -621,6 +621,7 @@ class PipelineRouterBuilder:
                 raise UnauthorizedError("User not found")
 
             await maybe_await(auth.set_password(user, body.new_password))
+            await auth.token_store.revoke_all_for_user(str(user.id))
             return {"detail": "Password has been reset successfully."}
 
     # ── Account linking ──────────────────────────────────────────

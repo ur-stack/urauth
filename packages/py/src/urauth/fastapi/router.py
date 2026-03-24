@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from urauth.backends.base import TokenStore, UserFunctions
 from urauth.config import AuthConfig
-from urauth.exceptions import UnauthorizedError
+from urauth.exceptions import InvalidTokenError, TokenExpiredError, UnauthorizedError
 from urauth.fastapi.transport.base import Transport
 from urauth.tokens.jwt import TokenService
 from urauth.tokens.refresh import RefreshService
@@ -117,14 +117,15 @@ def create_password_auth_router(
         if raw:
             try:
                 claims = token_service.decode_token(raw)
-                # Revoke entire session (access + refresh) via family
-                family_id = await token_store.get_family_id(claims["jti"])
-                if family_id:
-                    await token_store.revoke_family(family_id)
-                else:
-                    await token_store.revoke(claims["jti"], claims["exp"])
-            except Exception:
-                pass
+            except (InvalidTokenError, TokenExpiredError):
+                transport.delete_token(response)
+                return
+            # Revocation errors propagate (500) so user knows logout failed
+            family_id = await token_store.get_family_id(claims["jti"])
+            if family_id:
+                await token_store.revoke_family(family_id)
+            else:
+                await token_store.revoke(claims["jti"], claims["exp"])
         transport.delete_token(response)
 
     @router.post("/logout-all", status_code=204)
@@ -137,9 +138,11 @@ def create_password_auth_router(
         if raw:
             try:
                 claims = token_service.decode_token(raw)
-                await token_store.revoke_all_for_user(claims["sub"])
-            except Exception:
-                pass
+            except (InvalidTokenError, TokenExpiredError):
+                transport.delete_token(response)
+                return
+            # Revocation errors propagate (500) so user knows logout failed
+            await token_store.revoke_all_for_user(claims["sub"])
         transport.delete_token(response)
 
     return router

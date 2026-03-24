@@ -13,6 +13,7 @@ from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 from starlette.requests import Request
 
+from tests.conftest import FakeBackend, FakeUser
 from urauth import Auth, AuthConfig
 from urauth.authz.checker import (
     RoleExpandingChecker,
@@ -26,8 +27,6 @@ from urauth.context import AuthContext
 from urauth.fastapi.auth import FastAuth
 from urauth.fastapi.authz.access import AccessControl
 from urauth.fastapi.exceptions import register_exception_handlers
-
-from ..conftest import FakeBackend, FakeUser
 
 
 @dataclass
@@ -286,7 +285,7 @@ class TestCustomChecker:
 
         @app.get("/test")
         @access.guard("any", "thing")
-        async def test_endpoint(_request: Request) -> dict[str, bool]:
+        async def test_endpoint(_request: Request) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         transport = ASGITransport(app=app)
@@ -310,7 +309,7 @@ class TestCustomChecker:
 
         @app.get("/test")
         @access.guard("any", "thing")
-        async def test_endpoint(_request: Request) -> dict[str, bool]:
+        async def test_endpoint(_request: Request) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         transport = ASGITransport(app=app)
@@ -340,7 +339,7 @@ class TestScopeSupport:
 
         @app.delete("/orgs/{org_id}/users/{user_id}")
         @access.guard("user", "delete", scope_from="org_id")
-        async def delete_org_user(
+        async def delete_org_user(  # pyright: ignore[reportUnusedFunction]
             request: Request, org_id: str, user_id: str
         ) -> dict[str, bool]:
             return {"ok": True}
@@ -367,7 +366,7 @@ class TestScopeSupport:
 
         @app.get("/scoped")
         @access.guard("post", "read", scope="tenant-a")
-        async def scoped_read(_request: Request) -> dict[str, bool]:
+        async def scoped_read(_request: Request) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         transport = ASGITransport(app=app)
@@ -407,7 +406,7 @@ class TestTypedPermissionGuard:
 
         @app.get("/tasks")
         @access.guard(perms.TASK_READ)
-        async def list_tasks(request: Request) -> dict[str, bool]:
+        async def list_tasks(request: Request) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         transport = ASGITransport(app=app)
@@ -426,7 +425,7 @@ class TestTypedPermissionGuard:
 
         @app.delete("/tasks/1")
         @access.guard(perms.TASK_DELETE)
-        async def delete_task(request: Request) -> dict[str, bool]:
+        async def delete_task(request: Request) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         transport = ASGITransport(app=app)
@@ -444,7 +443,7 @@ class TestTypedPermissionGuard:
         )
 
         @app.put("/tasks/1", dependencies=[Depends(access.guard(perms.TASK_WRITE))])
-        async def update_task() -> dict[str, bool]:
+        async def update_task() -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         transport = ASGITransport(app=app)
@@ -462,7 +461,7 @@ class TestTypedPermissionGuard:
         )
 
         @app.put("/tasks/1", dependencies=[Depends(access.guard(perms.TASK_WRITE))])
-        async def update_task() -> dict[str, bool]:
+        async def update_task() -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         transport = ASGITransport(app=app)
@@ -483,7 +482,7 @@ class TestTypedPermissionGuard:
 
         @app.get("/docs")
         @access.guard(perm)
-        async def list_docs(request: Request) -> dict[str, bool]:
+        async def list_docs(request: Request) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         transport = ASGITransport(app=app)
@@ -501,7 +500,7 @@ class TestTypedPermissionGuard:
         )
 
         @app.get("/check")
-        async def check_endpoint(request: Request) -> dict[str, bool]:
+        async def check_endpoint(request: Request) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             can_read = await access.check(perms.TASK_READ, request=request)
             can_write = await access.check(perms.TASK_WRITE, request=request)
             return {"can_read": can_read, "can_write": can_write}
@@ -534,7 +533,7 @@ class TestTypedPermissionGuard:
 
         @app.get("/test")
         @access.guard(perm)
-        async def test_endpoint(request: Request) -> dict[str, bool]:
+        async def test_endpoint(request: Request) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         transport = ASGITransport(app=app)
@@ -566,12 +565,12 @@ class TestRoleRegistryAccessControl:
 
         @app.get("/tasks")
         @access.guard(P.TASK_READ)
-        async def list_tasks(request: Request) -> dict[str, bool]:
+        async def list_tasks(request: Request) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         @app.post("/tasks")
         @access.guard(P.TASK_WRITE)
-        async def create_task(request: Request) -> dict[str, bool]:
+        async def create_task(request: Request) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         transport = ASGITransport(app=app)
@@ -600,7 +599,7 @@ class TestRoleRegistryAccessControl:
 
         @app.post("/tasks")
         @access.guard(P.TASK_WRITE)
-        async def create_task(request: Request) -> dict[str, bool]:
+        async def create_task(request: Request) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         transport = ASGITransport(app=app)
@@ -613,17 +612,17 @@ class TestRoleRegistryAccessControl:
 
 
 class _TestBackendAuth(Auth):
-    def __init__(self, backend: FakeBackend, **kwargs):  # type: ignore[no-untyped-def]
+    def __init__(self, backend: FakeBackend, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._backend = backend
 
-    async def get_user(self, user_id):  # type: ignore[no-untyped-def]
+    async def get_user(self, user_id: Any) -> Any | None:
         return await self._backend.get_by_id(str(user_id))
 
-    async def get_user_by_username(self, username):  # type: ignore[no-untyped-def]
+    async def get_user_by_username(self, username: str) -> Any | None:
         return await self._backend.get_by_username(username)
 
-    async def verify_password(self, user, password):  # type: ignore[no-untyped-def]
+    async def verify_password(self, user: Any, password: str) -> bool:  # type: ignore[override]
         return await self._backend.verify_password(user, password)
 
 
@@ -669,12 +668,12 @@ class TestFastAuthAccessControl:
 
         @app.get("/policy-delete")
         @access.guard("user", "delete")
-        async def policy_delete(request: Request) -> dict[str, bool]:
+        async def policy_delete(request: Request) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         @app.get("/policy-read")
         @access.guard("user", "read")
-        async def policy_read(request: Request) -> dict[str, bool]:
+        async def policy_read(request: Request) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         return app
@@ -736,7 +735,7 @@ class TestFastAuthAccessControl:
 
         @app.get("/delete")
         @access.guard("user", "delete")
-        async def policy_delete(request: Request) -> dict[str, bool]:
+        async def policy_delete(request: Request) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         transport = ASGITransport(app=app)

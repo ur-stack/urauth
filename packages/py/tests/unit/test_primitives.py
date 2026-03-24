@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from urauth.authz.primitives import Action, Permission, Relation, Resource, Role
+from urauth.authz.primitives import Action, Permission, Relation, Resource, Role, match_permission
+from urauth.context import AuthContext
 
 # ── Action ──────────────────────────────────────────────────────
 
@@ -207,3 +208,72 @@ class TestRole:
         perms.append(Permission("user", "write"))
         # Role's list should not be affected
         assert len(r.permissions) == 1
+
+
+# ── match_permission edge cases ─────────────────────────────────
+
+
+class TestMatchPermission:
+    def test_colon_in_action_exact_match(self) -> None:
+        assert match_permission("a:b:c", "a:b:c") is True
+
+    def test_resource_wildcard_with_nested_target(self) -> None:
+        # "res:*" should match "res:sub:act" because split(":", 1)[0] gives "res"
+        assert match_permission("res:*", "res:sub:act") is True
+
+    def test_empty_pattern(self) -> None:
+        assert match_permission("", "user:read") is False
+
+    def test_empty_target(self) -> None:
+        assert match_permission("user:read", "") is False
+
+    def test_case_sensitive(self) -> None:
+        assert match_permission("User:Read", "user:read") is False
+
+    def test_wildcard_in_target_not_pattern(self) -> None:
+        # Wildcard only works as a pattern, not when it appears in the target
+        assert match_permission("user:read", "*") is False
+
+
+# ── Composable requirement evaluation ───────────────────────────
+
+
+class TestRequirementComposition:
+    def test_allof_partial_fails(self) -> None:
+        perm_a = Permission("user", "read")
+        perm_b = Permission("user", "write")
+        ctx = AuthContext(user="u1", permissions=[perm_a])
+        assert (perm_a & perm_b).evaluate(ctx) is False
+
+    def test_anyof_with_allof_branches(self) -> None:
+        a = Permission("user", "read")
+        b = Permission("user", "write")
+        c = Permission("task", "read")
+        d = Permission("task", "write")
+        ctx = AuthContext(user="u1", permissions=[c, d])
+        # ctx has c and d but not a — the second branch should satisfy
+        assert ((a & b) | (c & d)).evaluate(ctx) is True
+
+    def test_nested_and_or(self) -> None:
+        a = Permission("user", "read")
+        b = Permission("user", "write")
+        c = Permission("task", "read")
+        d = Permission("task", "write")
+        req = ((a & b) | c) & d
+        # ctx has c and d → (False & False | True) & True → True
+        ctx = AuthContext(user="u1", permissions=[c, d])
+        assert req.evaluate(ctx) is True
+        # ctx has only d → (False & False | False) & True → False
+        ctx2 = AuthContext(user="u1", permissions=[d])
+        assert req.evaluate(ctx2) is False
+
+    def test_anonymous_context_fails_all(self) -> None:
+        ctx = AuthContext.anonymous()
+        perm = Permission("user", "read")
+        role = Role("admin")
+        rel = Relation("owner", "post")
+        assert perm.evaluate(ctx) is False
+        assert role.evaluate(ctx) is False
+        assert rel.evaluate(ctx) is False
+        assert (perm & role).evaluate(ctx) is False
+        assert (perm | role).evaluate(ctx) is False

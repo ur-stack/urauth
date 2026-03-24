@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -15,17 +17,17 @@ from urauth.fastapi.testing import create_test_token
 
 
 class _BackendAuth(Auth):
-    def __init__(self, backend: FakeBackend, **kwargs):  # type: ignore[no-untyped-def]
-        super().__init__(**kwargs)
+    def __init__(self, backend: FakeBackend, **kwargs: Any) -> None:
+        super().__init__(**kwargs)  # pyright: ignore[reportUnknownArgumentType]
         self._backend = backend
 
-    async def get_user(self, user_id):  # type: ignore[no-untyped-def]
+    async def get_user(self, user_id: Any) -> Any:
         return await self._backend.get_by_id(str(user_id))
 
-    async def get_user_by_username(self, username):  # type: ignore[no-untyped-def]
+    async def get_user_by_username(self, username: str) -> Any:
         return await self._backend.get_by_username(username)
 
-    async def verify_password(self, user, password):  # type: ignore[no-untyped-def]
+    async def verify_password(self, user: Any, password: str) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
         return await self._backend.verify_password(user, password)
 
 
@@ -50,7 +52,7 @@ class TestCurrentUserDependency:
         register_exception_handlers(app)
 
         @app.get("/me")
-        async def me(ctx: AuthContext = Depends(auth.context)):
+        async def me(ctx: AuthContext = Depends(auth.context)):  # pyright: ignore[reportUnusedFunction]
             if not ctx.is_authenticated():
                 from urauth.exceptions import UnauthorizedError
 

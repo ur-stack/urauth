@@ -17,7 +17,7 @@ from urauth.authz.exceptions import ConfigurationError
 from urauth.authz.permission_enum import PermissionEnum
 from urauth.authz.primitives import Permission
 from urauth.context import AuthContext
-from urauth.exceptions import ForbiddenError
+from urauth.exceptions import ForbiddenError, UnauthorizedError
 from urauth.fastapi._utils import find_request_param
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -88,6 +88,9 @@ class _Guard:
         return self._scope
 
     async def _check_and_deny(self, request: Request, scope: str | None) -> bool:
+        ctx = await self._access.resolve_context(request)
+        if not ctx.is_authenticated():
+            raise UnauthorizedError()
         allowed = await self._access.evaluate(
             request,
             self._resource,
@@ -183,7 +186,8 @@ class AccessControl:
         self.on_deny = on_deny
         self.auto_error = auto_error
 
-    async def _resolve_context(self, request: Request) -> AuthContext:
+    async def resolve_context(self, request: Request) -> AuthContext:
+        """Resolve and cache the AuthContext for this request."""
         cached = getattr(request.state, "_auth_context", None)
         if cached is not None:
             return cached
@@ -200,7 +204,7 @@ class AccessControl:
         scope: str | None = None,
         permission: Permission | None = None,
     ) -> bool:
-        ctx = await self._resolve_context(request)
+        ctx = await self.resolve_context(request)
         extra: dict[str, Any] = {}
         if permission is not None:
             extra["permission"] = permission

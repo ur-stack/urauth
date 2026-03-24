@@ -18,12 +18,12 @@ HASHER = PasswordHasher(rounds=4)
 
 
 class User(UserBase, table=True):
-    __tablename__ = "sm_users"
+    __tablename__ = "sm_users"  # type: ignore[reportAssignmentType]
     department: str = Field(default="engineering")
 
 
 class Role(RoleBase, table=True):
-    __tablename__ = "sm_roles"
+    __tablename__ = "sm_roles"  # type: ignore[reportAssignmentType]
 
 
 # ── Fixtures ────────────────────────────────────────────────────
@@ -134,13 +134,13 @@ class TestCreateSQLModelAuth:
 
 class TestModelBases:
     def test_user_base_fields(self) -> None:
-        columns = {c.name for c in User.__table__.columns}
+        columns: set[str] = {c.name for c in User.__table__.columns}  # type: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
         assert {"id", "username", "email", "password_hash", "is_active"} <= columns
 
     def test_custom_column_present(self) -> None:
-        columns = {c.name for c in User.__table__.columns}
+        columns: set[str] = {c.name for c in User.__table__.columns}  # type: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
         assert "department" in columns
 
     def test_role_base_fields(self) -> None:
-        columns = {c.name for c in Role.__table__.columns}
+        columns: set[str] = {c.name for c in Role.__table__.columns}  # type: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
         assert {"id", "name", "description"} <= columns

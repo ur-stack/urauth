@@ -25,9 +25,15 @@ class _FamilyRecord:
 
 
 class MemoryTokenStore:
-    """In-memory token store for development and testing."""
+    """In-memory token store for development and testing.
 
-    def __init__(self) -> None:
+    With ``strict=True``, unknown JTIs are treated as revoked (fail-closed).
+    Default is ``False`` (fail-open) for backward compatibility.
+    Production token stores should use fail-closed behavior.
+    """
+
+    def __init__(self, *, strict: bool = False) -> None:
+        self._strict = strict
         self._tokens: dict[str, _TokenRecord] = {}
         self._user_tokens: dict[str, set[str]] = {}
         self._families: dict[str, _FamilyRecord] = {}
@@ -36,7 +42,7 @@ class MemoryTokenStore:
     async def is_revoked(self, jti: str) -> bool:
         rec = self._tokens.get(jti)
         if rec is None:
-            return False
+            return self._strict
         return rec.revoked
 
     async def revoke(self, jti: str, expires_at: float) -> None:

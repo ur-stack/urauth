@@ -11,7 +11,9 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
+from urauth.backends.base import TokenStore
 from urauth.config import AuthConfig
+from urauth.exceptions import InvalidTokenError, TokenExpiredError
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):
@@ -62,11 +64,13 @@ class TokenRefreshMiddleware(BaseHTTPMiddleware):
         app: Any,
         token_service: Any,
         transport: Any,
+        token_store: TokenStore,
         threshold: int = 300,
     ) -> None:
         super().__init__(app)
         self._token_service = token_service
         self._transport = transport
+        self._token_store = token_store
         self._threshold = threshold
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
@@ -77,17 +81,26 @@ class TokenRefreshMiddleware(BaseHTTPMiddleware):
             return response
 
         try:
-            claims = self._token_service.decode_token(raw_token)
-            remaining = claims.get("exp", 0) - time.time()
+            payload = self._token_service.validate_access_token(raw_token)
+            if await self._token_store.is_revoked(payload.jti):
+                return response
+            remaining = payload.exp - time.time()
             if 0 < remaining < self._threshold:
                 new_token = self._token_service.create_access_token(
-                    claims["sub"],
-                    scopes=claims.get("scopes"),
-                    roles=claims.get("roles"),
-                    tenant_id=claims.get("tenant_id"),
+                    payload.sub,
+                    scopes=payload.scopes or None,
+                    roles=payload.roles or None,
+                    tenant_id=payload.tenant_id,
+                )
+                new_payload = self._token_service.validate_access_token(new_token)
+                await self._token_store.add_token(
+                    new_payload.jti,
+                    new_payload.sub,
+                    "access",
+                    new_payload.exp,
                 )
                 self._transport.set_token(response, new_token)
-        except Exception:
+        except (InvalidTokenError, TokenExpiredError):
             pass
 
         return response

@@ -289,8 +289,8 @@ class TestRoleRegistry:
         reg.role("viewer", permissions=["task:read"])
 
         checker = reg.build_checker()
-        assert checker._role_permissions["admin"] == {"*"}
-        assert checker._role_permissions["viewer"] == {"task:read"}
+        assert checker._role_permissions  # pyright: ignore[reportPrivateUsage]["admin"] == {"*"}
+        assert checker._role_permissions  # pyright: ignore[reportPrivateUsage]["viewer"] == {"task:read"}
 
     def test_static_hierarchy(self) -> None:
         reg = RoleRegistry()
@@ -313,7 +313,7 @@ class TestRoleRegistry:
         combined.include(r2)
 
         checker = combined.build_checker()
-        assert checker._role_permissions["editor"] == {"task:read", "task:write"}
+        assert checker._role_permissions  # pyright: ignore[reportPrivateUsage]["editor"] == {"task:read", "task:write"}
 
     def test_include_merges_hierarchy(self) -> None:
         r1 = RoleRegistry()
@@ -340,8 +340,8 @@ class TestRoleRegistry:
         reg.role("editor", permissions=[P.TASK_READ, P.TASK_WRITE])
 
         checker = reg.build_checker()
-        assert "task:read" in checker._role_permissions["editor"]
-        assert "task:write" in checker._role_permissions["editor"]
+        assert "task:read" in checker._role_permissions["editor"]  # pyright: ignore[reportPrivateUsage]
+        assert "task:write" in checker._role_permissions["editor"]  # pyright: ignore[reportPrivateUsage]
 
     async def test_static_wins_over_loaded(self) -> None:
         class FakeLoader:
@@ -357,7 +357,7 @@ class TestRoleRegistry:
         await reg.load()
 
         checker = reg.build_checker()
-        assert checker._role_permissions["admin"] == {"*"}
+        assert checker._role_permissions  # pyright: ignore[reportPrivateUsage]["admin"] == {"*"}
 
     async def test_loaded_roles_available(self) -> None:
         class FakeLoader:
@@ -372,7 +372,7 @@ class TestRoleRegistry:
         await reg.load()
 
         checker = reg.build_checker()
-        assert checker._role_permissions["custom_role"] == {"report:read", "report:write"}
+        assert checker._role_permissions  # pyright: ignore[reportPrivateUsage]["custom_role"] == {"report:read", "report:write"}
 
 
 # ── MemoryRoleCache ──────────────────────────────────────────────

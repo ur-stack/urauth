@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from tests.conftest import FakeBackend
@@ -11,18 +13,19 @@ from urauth.fastapi import FastAuth
 class _BackendAuth(Auth):
     """Auth subclass backed by FakeBackend for testing."""
 
-    def __init__(self, backend: FakeBackend, **kwargs):  # type: ignore[no-untyped-def]
+    def __init__(self, backend: FakeBackend, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._backend = backend
 
-    async def get_user(self, user_id):  # type: ignore[no-untyped-def]
+    async def get_user(self, user_id: Any) -> Any | None:
         return await self._backend.get_by_id(str(user_id))
 
-    async def get_user_by_username(self, username):  # type: ignore[no-untyped-def]
+    async def get_user_by_username(self, username: str) -> Any | None:
         return await self._backend.get_by_username(username)
 
-    async def verify_password(self, user, password):  # type: ignore[no-untyped-def]
-        return await self._backend.verify_password(user, password)
+    def verify_password(self, user: Any, password: str) -> bool:
+        # Synchronous — delegates to backend's sync check for tests
+        return user.password_hash == password
 
 
 @pytest.fixture

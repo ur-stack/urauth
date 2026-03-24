@@ -122,7 +122,7 @@ class TestPermissionEnumStringForm:
     def test_invalid_value(self) -> None:
         with pytest.raises(TypeError):
 
-            class Perms(PermissionEnum):
+            class Perms(PermissionEnum):  # pyright: ignore[reportUnusedClass]
                 BAD = 42  # type: ignore[assignment]
 
     def test_in_context(self) -> None:

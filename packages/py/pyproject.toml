@@ -41,6 +41,8 @@ dev = [
     "urauth[fastapi,oauth]",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
+    "pytest-xdist>=3.5",
+    "pytest-cov>=6.0",
     "httpx>=0.25.0",
     "coverage>=7.0",
     "ruff>=0.9",
@@ -57,6 +59,26 @@ packages = ["src/urauth"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["src/urauth"]
+omit = [
+    "src/urauth/contrib/*",
+    "src/urauth/sessions/redis.py",
+    "src/urauth/authn/oauth2/client.py",
+    "src/urauth/fastapi/openapi.py",
+    "src/urauth/fastapi/ratelimit.py",
+    "src/urauth/fastapi/pipeline/routes.py",
+    "src/urauth/fastapi/pipeline/resolvers.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+fail_under = 85
 
 [tool.ruff]
 target-version = "py310"

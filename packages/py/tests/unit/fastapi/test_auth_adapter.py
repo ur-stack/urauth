@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 import pytest
 from fastapi import Depends, FastAPI
@@ -53,27 +54,27 @@ class FakeUser:
 
 
 class _CoreAuth(Auth):
-    def __init__(self, users: dict[str, FakeUser] | None = None, **kwargs):
+    def __init__(self, users: dict[str, FakeUser] | None = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._users = users or {}
 
-    async def get_user(self, user_id):
+    async def get_user(self, user_id: Any) -> Any | None:
         return self._users.get(str(user_id))
 
-    async def get_user_by_username(self, username):
+    async def get_user_by_username(self, username: str) -> Any | None:
         return None
 
-    async def verify_password(self, user, password):  # type: ignore[override]
+    def verify_password(self, user: Any, password: str) -> bool:
         return True
 
-    async def get_user_roles(self, user):  # type: ignore[override]
+    async def get_user_roles(self, user: Any) -> list[Role]:  # type: ignore[override]
         role_map = {"admin": admin, "editor": editor, "viewer": viewer}
         return [role_map[r] for r in user.roles if r in role_map]
 
-    async def get_user_relations(self, user):  # type: ignore[override]
+    async def get_user_relations(self, user: Any) -> list[tuple[Relation, str]]:  # type: ignore[override]
         return [(owns_post, "42"), (member_of, "acme")]
 
-    async def check_relation(self, user, relation, resource_id):  # type: ignore[override]
+    async def check_relation(self, user: Any, relation: Relation, resource_id: str) -> bool:  # type: ignore[override]
         return (relation, resource_id) in [(owns_post, "42"), (member_of, "acme")]
 
 
@@ -117,7 +118,7 @@ class TestRequireDecorator:
 
         @app.get("/users")
         @auth.require(can_read_users)
-        async def list_users(ctx: AuthContext = Depends(auth.context)):
+        async def list_users(ctx: AuthContext = Depends(auth.context)) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
             return {"user": ctx.user.id}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -132,7 +133,7 @@ class TestRequireDecorator:
 
         @app.get("/admin")
         @auth.require(can_delete_posts)
-        async def admin_only(ctx: AuthContext = Depends(auth.context)):
+        async def admin_only(ctx: AuthContext = Depends(auth.context)) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -146,8 +147,8 @@ class TestRequireDecorator:
 
         @app.get("/users")
         @auth.require(can_read_users)
-        async def list_users(ctx: AuthContext = Depends(auth.context)):
-            return {}
+        async def list_users(ctx: AuthContext = Depends(auth.context)) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+            return {}  # type: ignore[return-value]
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/users")
@@ -159,7 +160,7 @@ class TestRequireDecorator:
 
         @app.get("/admin")
         @auth.require(admin)
-        async def admin_stats(ctx: AuthContext = Depends(auth.context)):
+        async def admin_stats(ctx: AuthContext = Depends(auth.context)) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
             return {"role": "admin"}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -191,7 +192,7 @@ class TestReqAlias:
 
         @app.get("/users")
         @auth.req(can_read_users)
-        async def list_users(ctx: AuthContext = Depends(auth.context)):
+        async def list_users(ctx: AuthContext = Depends(auth.context)) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -209,7 +210,7 @@ class TestRequireDepends:
         auth.init_app(app)
 
         @app.get("/users", dependencies=[Depends(auth.require(can_read_users))])
-        async def list_users():
+        async def list_users() -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -222,8 +223,8 @@ class TestRequireDepends:
         auth.init_app(app)
 
         @app.get("/admin", dependencies=[Depends(auth.require(can_delete_posts))])
-        async def admin_only():
-            return {}
+        async def admin_only() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+            return {}  # type: ignore[return-value]
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             token = _make_token(auth, "user-2", ["viewer"])
@@ -235,8 +236,8 @@ class TestRequireDepends:
         auth.init_app(app)
 
         @app.get("/users", dependencies=[Depends(auth.require(can_read_users))])
-        async def list_users():
-            return {}
+        async def list_users() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+            return {}  # type: ignore[return-value]
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/users")
@@ -253,7 +254,7 @@ class TestRequireAny:
 
         @app.put("/posts/{post_id}")
         @auth.require_any(can_write_posts, admin)
-        async def update(post_id: str, ctx: AuthContext = Depends(auth.context)):
+        async def update(post_id: str, ctx: AuthContext = Depends(auth.context)) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
             return {"updated": post_id}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -272,7 +273,7 @@ class TestRequireAny:
         auth.init_app(app)
 
         @app.put("/posts/{post_id}", dependencies=[Depends(auth.req_any(can_write_posts, admin))])
-        async def update(post_id: str):
+        async def update(post_id: str) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
             return {"updated": post_id}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -291,7 +292,7 @@ class TestRequireRelation:
 
         @app.delete("/posts/{post_id}")
         @auth.require_relation(owns_post, resource_id_from="post_id")
-        async def delete_post(post_id: str, request: Request):
+        async def delete_post(post_id: str, request: Request) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
             return {"deleted": post_id}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -312,7 +313,7 @@ class TestRequireRelation:
             "/posts/{post_id}",
             dependencies=[Depends(auth.req_relation(owns_post, resource_id_from="post_id"))],
         )
-        async def delete_post(post_id: str):
+        async def delete_post(post_id: str) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
             return {"deleted": post_id}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -339,7 +340,7 @@ class TestPolicy:
                 and ctx.has_relation(member_of, ctx.path_params.get("org_id", ""))
             )
         )
-        async def invite(org_id: str, ctx: AuthContext = Depends(auth.context)):
+        async def invite(org_id: str, ctx: AuthContext = Depends(auth.context)) -> dict[str, bool | str]:  # pyright: ignore[reportUnusedFunction]
             return {"invited": True, "org": org_id}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -356,11 +357,11 @@ class TestPolicy:
         app = FastAPI()
         auth.init_app(app)
 
-        def check(ctx):
+        def check(ctx: AuthContext) -> bool:
             return ctx.has_role(admin)
 
         @app.get("/admin", dependencies=[Depends(auth.policy(check))])
-        async def admin_only():
+        async def admin_only() -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -383,7 +384,7 @@ class TestOptional:
 
         @app.get("/feed")
         @auth.optional
-        async def feed(ctx: AuthContext = Depends(auth.context)):
+        async def feed(ctx: AuthContext = Depends(auth.context)) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
             if ctx.is_authenticated():
                 return {"feed": "personalized", "user": ctx.user.id}
             return {"feed": "public"}
@@ -400,7 +401,7 @@ class TestOptional:
 
         @app.get("/feed")
         @auth.optional
-        async def feed(ctx: AuthContext = Depends(auth.context)):
+        async def feed(ctx: AuthContext = Depends(auth.context)) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
             if ctx.is_authenticated():
                 return {"feed": "personalized"}
             return {"feed": "public"}
@@ -420,7 +421,7 @@ class TestContext:
         auth.init_app(app)
 
         @app.get("/me", dependencies=[Depends(auth.require(can_read_users))])
-        async def me(ctx: AuthContext = Depends(auth.context)):
+        async def me(ctx: AuthContext = Depends(auth.context)) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
             return {
                 "user": ctx.user.id,
                 "roles": [r.name for r in ctx.roles],
@@ -443,17 +444,17 @@ class TestContext:
         app = FastAPI()
         auth.init_app(app)
         call_count = 0
-        original_build = auth._auth.build_context
+        original_build = auth._auth.build_context  # pyright: ignore[reportPrivateUsage]
 
-        async def counting_build(*args, **kwargs):
+        async def counting_build(*args: Any, **kwargs: Any) -> Any:
             nonlocal call_count
             call_count += 1
             return await original_build(*args, **kwargs)
 
-        auth._auth.build_context = counting_build  # type: ignore
+        auth._auth.build_context = counting_build  # type: ignore[assignment]  # pyright: ignore[reportPrivateUsage]
 
         @app.get("/test", dependencies=[Depends(auth.require(can_read_users))])
-        async def endpoint(ctx: AuthContext = Depends(auth.context)):
+        async def endpoint(ctx: AuthContext = Depends(auth.context)) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
             return {"ok": True}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -470,7 +471,7 @@ class TestContext:
 
         @app.get("/me")
         @auth.require(can_read_users)
-        async def me(request: Request):
+        async def me(request: Request) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
             ctx = await auth.context(request)
             return {"user": ctx.user.id}
 

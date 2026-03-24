@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from typing import Any
 
 import pytest
 from fastapi import Depends, FastAPI
@@ -18,17 +19,17 @@ from urauth.fastapi import FastAuth
 class _BackendAuth(Auth):
     """Auth subclass backed by FakeBackend for testing."""
 
-    def __init__(self, backend: FakeBackend, **kwargs):  # type: ignore[no-untyped-def]
-        super().__init__(**kwargs)
+    def __init__(self, backend: FakeBackend, **kwargs: Any) -> None:
+        super().__init__(**kwargs)  # pyright: ignore[reportUnknownArgumentType]
         self._backend = backend
 
-    async def get_user(self, user_id):  # type: ignore[no-untyped-def]
+    async def get_user(self, user_id: Any) -> Any:
         return await self._backend.get_by_id(str(user_id))
 
-    async def get_user_by_username(self, username):  # type: ignore[no-untyped-def]
+    async def get_user_by_username(self, username: str) -> Any:
         return await self._backend.get_by_username(username)
 
-    async def verify_password(self, user, password):  # type: ignore[no-untyped-def]
+    async def verify_password(self, user: Any, password: str) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
         return await self._backend.verify_password(user, password)
 
 
@@ -65,12 +66,12 @@ def app(alice: FakeUser, bob: FakeUser) -> FastAPI:
     app.include_router(auth.password_auth_router())
 
     @app.get("/me")
-    async def me(ctx: AuthContext = Depends(auth.context)):
+    async def me(ctx: AuthContext = Depends(auth.context)):  # pyright: ignore[reportUnusedFunction]
         return {"id": ctx.user.id, "email": ctx.user.email}
 
     @app.get("/admin")
     @auth.require(auth._auth.get_user_roles)  # type: ignore[arg-type]  # We use a simple role check instead
-    async def admin(ctx: AuthContext = Depends(auth.context)):
+    async def admin(ctx: AuthContext = Depends(auth.context)):  # pyright: ignore[reportUnusedFunction]
         return {"id": ctx.user.id, "admin": True}
 
     return app

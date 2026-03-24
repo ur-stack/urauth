@@ -1,6 +1,9 @@
 """Tests for the framework-agnostic RateLimiter."""
+# pyright: reportUnknownMemberType=false
 
 from __future__ import annotations
+
+from typing import Any
 
 import pytest
 
@@ -52,9 +55,12 @@ class TestRateLimiterKeyResolution:
         pytest.importorskip("pyrate_limiter")
         from pyrate_limiter import Duration, Rate  # type: ignore[reportMissingImports]
 
+        def custom_key(**kw: Any) -> str:
+            return f"custom:{kw.get('ip')}:{kw.get('user_id')}"
+
         limiter = RateLimiter(
             rates=[Rate(10, Duration.MINUTE)],
-            key_func=lambda **kw: f"custom:{kw.get('ip')}:{kw.get('user_id')}",
+            key_func=custom_key,
         )
         key = limiter.resolve_key(ip="1.2.3.4", user_id="bob")
         assert key == "custom:1.2.3.4:bob"

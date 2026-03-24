@@ -67,7 +67,8 @@ class TokenService:
         if fresh:
             claims["fresh"] = True
         if extra_claims:
-            claims.update(extra_claims)
+            reserved = {"sub", "jti", "iat", "exp", "iss", "aud"}
+            claims.update({k: v for k, v in extra_claims.items() if k not in reserved})
 
         return jwt.encode(claims, self._key, algorithm=self._config.algorithm)
 
@@ -129,11 +130,18 @@ class TokenService:
         claims = self.decode_token(token)
         if claims.get("type") != "access":
             raise InvalidTokenError("Not an access token")
+        try:
+            sub = claims["sub"]
+            jti = claims["jti"]
+            iat = claims["iat"]
+            exp = claims["exp"]
+        except KeyError as exc:
+            raise InvalidTokenError(f"Missing required claim: {exc}") from exc
         return TokenPayload(
-            sub=claims["sub"],
-            jti=claims["jti"],
-            iat=claims["iat"],
-            exp=claims["exp"],
+            sub=sub,
+            jti=jti,
+            iat=iat,
+            exp=exp,
             token_type="access",
             scopes=claims.get("scopes", []),
             roles=claims.get("roles", []),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Literal
+import warnings
+from typing import Any, Literal
 
 from pydantic_settings import BaseSettings
 
@@ -54,3 +55,12 @@ class AuthConfig(BaseSettings):
 
     # Auth router prefix
     auth_prefix: str = "/auth"
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.secret_key == "CHANGE-ME-IN-PRODUCTION":
+            warnings.warn(
+                "urauth: Using default secret key 'CHANGE-ME-IN-PRODUCTION'. "
+                "Set AUTH_SECRET_KEY environment variable for production use.",
+                UserWarning,
+                stacklevel=2,
+            )

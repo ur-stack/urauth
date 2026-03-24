@@ -118,7 +118,7 @@ def _make_app(pipeline: Pipeline) -> FastAPI:
     app.include_router(auth.auto_router())
 
     @app.get("/protected")
-    async def protected(ctx: AuthContext = Depends(auth.context)):
+    async def protected(ctx: AuthContext = Depends(auth.context)):  # pyright: ignore[reportUnusedFunction]
         return {"user_id": ctx.user.id}
 
     return app
@@ -364,7 +364,7 @@ class TestBasicAuthPipeline:
         auth.init_app(app)
 
         @app.get("/protected")
-        async def protected(ctx: AuthContext = Depends(auth.context)):
+        async def protected(ctx: AuthContext = Depends(auth.context)):  # pyright: ignore[reportUnusedFunction]
             return {"user_id": ctx.user.id}
 
         return app

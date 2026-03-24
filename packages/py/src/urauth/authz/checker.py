@@ -80,14 +80,16 @@ class RoleExpandingChecker:
 
     def _build_expansion(self) -> None:
         for role in self._hierarchy:
-            self._expand(role)
+            self._expand(role, frozenset())
 
-    def _expand(self, role: str) -> set[str]:
+    def _expand(self, role: str, visiting: frozenset[str]) -> set[str]:
         if role in self._expanded:
             return self._expanded[role]
+        if role in visiting:
+            raise ValueError(f"Circular role hierarchy detected: {role}")
         result = {role}
         for child in self._hierarchy.get(role, []):
-            result |= self._expand(child)
+            result |= self._expand(child, visiting | {role})
         self._expanded[role] = result
         return result
 
