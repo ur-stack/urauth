@@ -1,0 +1,57 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 8 * * 1'  # Weekly on Monday at 08:00 UTC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --all-extras
+        working-directory: packages/py
+      - name: Install pip-audit
+        run: uv pip install pip-audit
+        working-directory: packages/py
+      - name: Audit dependencies
+        run: uv run pip-audit --strict --desc
+        working-directory: packages/py
+
+  sast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --all-extras
+        working-directory: packages/py
+      - name: Install bandit
+        run: uv pip install bandit[toml]
+        working-directory: packages/py
+      - name: Run bandit
+        run: uv run bandit -r src/urauth/ -c pyproject.toml --severity-level medium
+        working-directory: packages/py
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect secrets
+        uses: Yelp/detect-secrets-action@master
+        with:
+          baseline_file: .secrets.baseline
