@@ -91,6 +91,10 @@ class FastAuth:
         return self._auth.config
 
     @property
+    def lifecycle(self) -> Any:
+        return self._auth.lifecycle
+
+    @property
     def token_service(self) -> Any:
         return self._auth.token_service
 
@@ -299,8 +303,7 @@ class FastAuth:
 
         return create_password_auth_router(
             user_fns=user_fns,
-            token_service=self._auth.token_service,
-            token_store=self._auth.token_store,
+            lifecycle=self._auth.lifecycle,
             transport=self._transport,
             config=self._auth.config,
         )

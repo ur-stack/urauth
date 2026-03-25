@@ -95,21 +95,41 @@ This requires a `TokenStore`. The built-in `MemoryTokenStore` tracks `family_id`
 !!! note "How family tracking works in MemoryTokenStore"
     Each token is stored with a `family_id`. When a refresh token is used, the store looks up the family via `get_family_id(jti)`. If the token is already revoked, `revoke_family()` is called to invalidate every token sharing that family ID. This is the mechanism that catches replay attacks.
 
-## Revocation Service
+## Token Lifecycle
 
-Under the hood, urauth uses a `RevocationService` that wraps the `TokenStore`. It provides three operations:
+All token operations -- issuing, validating, refreshing, and revoking -- are handled by `TokenLifecycle`. It coordinates JWT creation with store-based tracking and revocation so you never need to orchestrate multiple objects directly.
 
-- `is_revoked(jti)` -- check if a token has been revoked
-- `revoke(jti, expires_at)` -- revoke a single token
-- `revoke_all_for_user(user_id)` -- revoke all tokens for a user
-
-The `RevocationService` is used automatically by the context builder and the auth router. You typically do not need to interact with it directly, but it is available if you need custom revocation logic:
+`TokenLifecycle` is created automatically when you instantiate `Auth` and is accessible as `core.lifecycle`:
 
 ```python
-from urauth.tokens.revocation import RevocationService
+from urauth.tokens.lifecycle import TokenLifecycle, IssueRequest
 
-revocation = RevocationService(core.token_store)
-await revocation.revoke(jti="token-id", expires_at=1700000000)
+# Issue tokens programmatically (normally handled by the router)
+pair = await core.lifecycle.issue(IssueRequest(
+    user_id="user-1",
+    roles=["admin"],
+    fresh=True,
+))
+
+# Validate an access token (JWT verification + revocation check in one call)
+payload = await core.lifecycle.validate(raw_access_token)
+
+# Refresh a token (rotation + reuse detection)
+new_pair = await core.lifecycle.refresh(raw_refresh_token)
+
+# Revoke a session (family-based revocation)
+await core.lifecycle.revoke(raw_token)
+
+# Revoke all tokens for a user
+await core.lifecycle.revoke_all(user_id)
+```
+
+For advanced use cases (custom token types, raw JWT decode), use the escape hatch:
+
+```python
+# Direct access to the underlying TokenService
+token_service = core.lifecycle.jwt
+claims = token_service.decode_token(some_token)
 ```
 
 ## Logout
@@ -132,7 +152,7 @@ curl -X POST http://localhost:8000/auth/logout-all \
   -H "Authorization: Bearer eyJ..."
 ```
 
-This calls `token_store.revoke_all_for_user()`, invalidating every access and refresh token the user has.
+This revokes every access and refresh token the user has.
 
 ## Token Store
 
@@ -161,8 +181,8 @@ See [Custom Backends](../how-to/custom-backends.md) for implementing a Redis-bac
 - `POST /auth/refresh` exchanges a refresh token for a new pair.
 - Token rotation (on by default) revokes old refresh tokens on use.
 - Reuse detection invalidates the entire token family if a revoked token is replayed. `MemoryTokenStore` tracks families via `family_id`.
-- `RevocationService` is the internal facade for all revocation operations.
-- `POST /auth/logout` revokes the current token; `POST /auth/logout-all` revokes all user tokens.
+- `TokenLifecycle` is the single entry point for all token operations: `issue()`, `validate()`, `refresh()`, `revoke()`, and `revoke_all()`.
+- `POST /auth/logout` revokes the current session; `POST /auth/logout-all` revokes all user tokens.
 - Use a persistent `TokenStore` in production.
 
 **Next:** [OAuth2 & Social Login](oauth2-social-login.md)

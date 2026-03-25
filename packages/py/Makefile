@@ -34,11 +34,11 @@ test-cov: ## Run tests with coverage (parallel)
 docs: ## Build docs
 	uv run mkdocs build
 
-docs-serve: ## Serve docs locally
-	uv run mkdocs serve
+docs-serve: ## Serve docs locally on :8041
+	uv run mkdocs serve -a localhost:8041
 
-example-fastapi: ## Run FastAPI example on :8000
-	cd examples/fastapi-example && uv run uvicorn app.main:app --reload --port 8000
+example-fastapi: ## Run FastAPI example on :8040
+	cd examples/fastapi-example && uv run uvicorn app.main:app --reload --port 8040
 
 build: ## Build package
 	uv build

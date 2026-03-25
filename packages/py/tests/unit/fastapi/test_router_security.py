@@ -14,6 +14,7 @@ from urauth.fastapi.exceptions import register_exception_handlers
 from urauth.fastapi.router import create_password_auth_router
 from urauth.fastapi.transport.bearer import BearerTransport
 from urauth.tokens.jwt import TokenService
+from urauth.tokens.lifecycle import TokenLifecycle
 
 SECRET = "test-secret-key-32-chars-long-xx"
 
@@ -36,7 +37,8 @@ def setup() -> _Setup:
 
     app = FastAPI()
     register_exception_handlers(app)
-    router = create_password_auth_router(user_fns, token_svc, store, transport, config)
+    lifecycle = TokenLifecycle(config, store)
+    router = create_password_auth_router(user_fns, lifecycle, transport, config)
     app.include_router(router)
     return app, token_svc, store
 

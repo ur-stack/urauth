@@ -14,6 +14,7 @@ from urauth.backends.memory import MemoryTokenStore
 from urauth.config import AuthConfig
 from urauth.fastapi.middleware import CSRFMiddleware, TokenRefreshMiddleware
 from urauth.tokens.jwt import TokenService
+from urauth.tokens.lifecycle import TokenLifecycle
 
 SECRET = "test-secret-key-32-chars-long-xx"
 
@@ -135,10 +136,11 @@ def _refresh_app(threshold: int = 300) -> tuple[FastAPI, TokenService, _FakeTran
     svc = TokenService(config)
     transport = _FakeTransport()
     store = MemoryTokenStore()
+    lifecycle = TokenLifecycle(config, store)
 
     app = FastAPI()
     app.add_middleware(
-        TokenRefreshMiddleware, token_service=svc, transport=transport, token_store=store, threshold=threshold
+        TokenRefreshMiddleware, lifecycle=lifecycle, transport=transport, threshold=threshold
     )
 
     @app.get("/protected")
@@ -171,9 +173,10 @@ class TestTokenRefreshMiddleware:
         svc = TokenService(config)
         transport = _FakeTransport()
         store = MemoryTokenStore()
+        lifecycle = TokenLifecycle(config, store)
         app = FastAPI()
         app.add_middleware(
-            TokenRefreshMiddleware, token_service=svc, transport=transport, token_store=store, threshold=300
+            TokenRefreshMiddleware, lifecycle=lifecycle, transport=transport, threshold=300
         )
 
         @app.get("/protected")
@@ -201,9 +204,10 @@ class TestTokenRefreshMiddleware:
         expired_svc = TokenService(config)
         transport = _FakeTransport()
         store = MemoryTokenStore()
+        lifecycle = TokenLifecycle(config, store)
         app = FastAPI()
         app.add_middleware(
-            TokenRefreshMiddleware, token_service=expired_svc, transport=transport, token_store=store, threshold=300
+            TokenRefreshMiddleware, lifecycle=lifecycle, transport=transport, threshold=300
         )
 
         @app.get("/protected")
@@ -222,9 +226,10 @@ class TestTokenRefreshMiddleware:
         svc = TokenService(config)
         transport = _FakeTransport()
         store = MemoryTokenStore()
+        lifecycle = TokenLifecycle(config, store)
         app = FastAPI()
         app.add_middleware(
-            TokenRefreshMiddleware, token_service=svc, transport=transport, token_store=store, threshold=300
+            TokenRefreshMiddleware, lifecycle=lifecycle, transport=transport, threshold=300
         )
 
         @app.get("/protected")

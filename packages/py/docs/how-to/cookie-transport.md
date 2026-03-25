@@ -101,7 +101,7 @@ from urauth.fastapi.middleware import TokenRefreshMiddleware
 
 app.add_middleware(
     TokenRefreshMiddleware,
-    token_service=auth.token_service,
+    lifecycle=auth.lifecycle,
     transport=CookieTransport(auth.config),
     threshold=300,  # refresh when less than 5 minutes remain (default)
 )

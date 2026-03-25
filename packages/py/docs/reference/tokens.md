@@ -1,24 +1,30 @@
 # Tokens
 
-JWT token creation, validation, refresh management, and revocation.
+JWT token creation, validation, lifecycle management, and revocation.
+
+## TokenLifecycle
+
+Unified entry point for all token operations: issue, validate, refresh, and revoke. Coordinates JWT creation/validation with store-based revocation tracking so callers never orchestrate multiple objects directly.
+
+::: urauth.tokens.lifecycle.TokenLifecycle
+
+## IssueRequest
+
+Parameters for issuing a new token pair (login, OAuth callback, etc.).
+
+::: urauth.tokens.lifecycle.IssueRequest
+
+## IssuedTokenPair
+
+Token pair enriched with `family_id` for session reference.
+
+::: urauth.tokens.lifecycle.IssuedTokenPair
 
 ## TokenService
 
-Creates and validates JWT access and refresh tokens.
+Low-level JWT creation and validation. Typically accessed via `TokenLifecycle.jwt` rather than used directly.
 
 ::: urauth.tokens.jwt.TokenService
-
-## RefreshService
-
-Handles refresh token rotation with reuse detection.
-
-::: urauth.tokens.refresh.RefreshService
-
-## RevocationService
-
-Manages token revocation and blacklisting.
-
-::: urauth.tokens.revocation.RevocationService
 
 ## TokenPayload
 

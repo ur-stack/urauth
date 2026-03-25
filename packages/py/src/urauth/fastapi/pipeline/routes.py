@@ -10,7 +10,6 @@ linking, and passkey operations.
 from __future__ import annotations
 
 import secrets
-import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -34,7 +33,7 @@ from urauth.pipeline import (
     Pipeline,
     SessionStrategy,
 )
-from urauth.tokens.refresh import RefreshService
+from urauth.tokens.lifecycle import IssueRequest
 
 # ── Shared request / response schemas ────────────────────────────
 
@@ -139,7 +138,7 @@ async def _issue_credentials(
     if mfa is not None:
         needs_mfa = mfa.required or await maybe_await(auth.is_mfa_enrolled(user))
         if needs_mfa:
-            mfa_token = auth.token_service.create_access_token(
+            mfa_token = auth.lifecycle.jwt.create_access_token(
                 str(user.id),
                 extra_claims={"type": "mfa", "mfa_pending": True},
                 fresh=True,
@@ -166,39 +165,17 @@ async def _issue_jwt(
     response: Response,
 ) -> dict[str, Any]:
     """Create JWT token pair and track if revocable."""
-    user_id = str(user.id)
-    roles = [str(r) for r in getattr(user, "roles", [])]
-    family_id = uuid.uuid4().hex
-
-    pair = auth.token_service.create_token_pair(
-        user_id,
-        roles=roles,
-        fresh=True,
-        family_id=family_id,
+    pair = await auth.lifecycle.issue(
+        IssueRequest(
+            user_id=str(user.id),
+            roles=[str(r) for r in getattr(user, "roles", [])],
+            fresh=True,
+            session_metadata={
+                "ip": request.client.host if request.client else "unknown",
+                "user_agent": request.headers.get("user-agent", "unknown"),
+            },
+        )
     )
-
-    if strategy.revocable:
-        access_claims = auth.token_service.decode_token(pair.access_token)
-        refresh_claims = auth.token_service.decode_token(pair.refresh_token)
-        metadata = {
-            "ip": request.client.host if request.client else "unknown",
-            "user_agent": request.headers.get("user-agent", "unknown"),
-        }
-        await auth.token_store.add_token(
-            jti=access_claims["jti"],
-            user_id=user_id,
-            token_type="access",
-            expires_at=access_claims["exp"],
-            family_id=family_id,
-            metadata=metadata,
-        )
-        await auth.token_store.add_token(
-            jti=refresh_claims["jti"],
-            user_id=user_id,
-            token_type="refresh",
-            expires_at=refresh_claims["exp"],
-            family_id=family_id,
-        )
 
     transport.set_token(response, pair.access_token)
     return {
@@ -524,7 +501,7 @@ class PipelineRouterBuilder:
         async def mfa_verify(body: _MFAVerifyRequest, request: Request, response: Response) -> dict[str, Any]:
             """Verify MFA code and issue full credentials."""
             try:
-                claims = auth.token_service.decode_token(body.mfa_token)
+                claims = auth.lifecycle.jwt.decode_token(body.mfa_token)
             except Exception as exc:
                 raise UnauthorizedError("Invalid MFA token") from exc
 
@@ -597,7 +574,7 @@ class PipelineRouterBuilder:
             await maybe_await(auth.invalidate_password(user))
 
             # Issue a short-lived reset session token
-            reset_session = auth.token_service.create_access_token(
+            reset_session = auth.lifecycle.jwt.create_access_token(
                 str(user.id),
                 extra_claims={"type": "reset_session"},
                 fresh=True,
@@ -608,7 +585,7 @@ class PipelineRouterBuilder:
         async def reset_complete(body: _ResetCompleteRequest) -> dict[str, str]:
             """Set new password using the reset session from confirm step."""
             try:
-                claims = auth.token_service.decode_token(body.reset_session)
+                claims = auth.lifecycle.jwt.decode_token(body.reset_session)
             except Exception as exc:
                 raise UnauthorizedError("Invalid or expired reset session") from exc
 
@@ -621,7 +598,7 @@ class PipelineRouterBuilder:
                 raise UnauthorizedError("User not found")
 
             await maybe_await(auth.set_password(user, body.new_password))
-            await auth.token_store.revoke_all_for_user(str(user.id))
+            await auth.lifecycle.revoke_all(str(user.id))
             return {"detail": "Password has been reset successfully."}
 
     # ── Account linking ──────────────────────────────────────────
@@ -733,11 +710,10 @@ class PipelineRouterBuilder:
         _bearer = HTTPBearer(auto_error=False)
 
         if strategy.refresh:
-            refresh_service = RefreshService(auth.token_service, auth.token_store, auth.config)
 
             @router.post("/refresh")
             async def refresh(body: _RefreshRequest, response: Response) -> dict[str, str]:
-                pair = await refresh_service.rotate(body.refresh_token)
+                pair = await auth.lifecycle.refresh(body.refresh_token)
                 transport.set_token(response, pair.access_token)
                 return {
                     "access_token": pair.access_token,
@@ -753,15 +729,7 @@ class PipelineRouterBuilder:
         ) -> None:
             raw = transport.extract_token(request)
             if raw and strategy.revocable:
-                try:
-                    claims = auth.token_service.decode_token(raw)
-                    family_id = await auth.token_store.get_family_id(claims["jti"])
-                    if family_id:
-                        await auth.token_store.revoke_family(family_id)
-                    else:
-                        await auth.token_store.revoke(claims["jti"], claims["exp"])
-                except Exception:
-                    pass
+                await auth.lifecycle.revoke(raw)
             transport.delete_token(response)
 
         if strategy.revocable:
@@ -775,8 +743,8 @@ class PipelineRouterBuilder:
                 raw = transport.extract_token(request)
                 if raw:
                     try:
-                        claims = auth.token_service.decode_token(raw)
-                        await auth.token_store.revoke_all_for_user(claims["sub"])
+                        claims = auth.lifecycle.jwt.decode_token(raw)
+                        await auth.lifecycle.revoke_all(claims["sub"])
                     except Exception:
                         pass
                 transport.delete_token(response)

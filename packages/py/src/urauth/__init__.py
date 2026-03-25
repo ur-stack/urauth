@@ -52,6 +52,7 @@ from urauth.ratelimit import KeyStrategy, RateLimiter
 
 # Tokens
 from urauth.tokens.jwt import TokenService
+from urauth.tokens.lifecycle import IssuedTokenPair, IssueRequest, TokenLifecycle
 from urauth.types import TokenPair, TokenPayload
 
 __all__ = [
@@ -99,6 +100,9 @@ __all__ = [
     "StringChecker",
     "TokenExpiredError",
     # Tokens
+    "TokenLifecycle",
+    "IssuedTokenPair",
+    "IssueRequest",
     "TokenPair",
     "TokenPayload",
     "TokenRevokedError",

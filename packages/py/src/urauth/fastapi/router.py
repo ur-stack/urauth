@@ -1,18 +1,15 @@
 # pyright: reportUnusedFunction=false
 from __future__ import annotations
 
-import uuid
-
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
-from urauth.backends.base import TokenStore, UserFunctions
+from urauth.backends.base import UserFunctions
 from urauth.config import AuthConfig
-from urauth.exceptions import InvalidTokenError, TokenExpiredError, UnauthorizedError
+from urauth.exceptions import UnauthorizedError
 from urauth.fastapi.transport.base import Transport
-from urauth.tokens.jwt import TokenService
-from urauth.tokens.refresh import RefreshService
+from urauth.tokens.lifecycle import IssueRequest, TokenLifecycle
 
 
 class _LoginRequest(BaseModel):
@@ -32,15 +29,13 @@ class _RefreshRequest(BaseModel):
 
 def create_password_auth_router(
     user_fns: UserFunctions,
-    token_service: TokenService,
-    token_store: TokenStore,
+    lifecycle: TokenLifecycle,
     transport: Transport,
     config: AuthConfig,
 ) -> APIRouter:
     """Build a router with login, refresh, logout, and logout-all endpoints."""
 
     router = APIRouter(prefix=config.auth_prefix, tags=["auth"])
-    refresh_service = RefreshService(token_service, token_store, config)
 
     @router.post("/login", response_model=_TokenResponse)
     async def login(body: _LoginRequest, request: Request, response: Response) -> _TokenResponse:
@@ -54,40 +49,16 @@ def create_password_auth_router(
         if not getattr(user, "is_active", True):
             raise UnauthorizedError("Inactive user")
 
-        user_id = str(user.id)
-        roles = list(getattr(user, "roles", []))
-        family_id = uuid.uuid4().hex
-
-        pair = token_service.create_token_pair(
-            user_id,
-            roles=roles,
-            fresh=True,
-            family_id=family_id,
-        )
-
-        # Session metadata from the request
-        session_metadata = {
-            "ip": request.client.host if request.client else "unknown",
-            "user_agent": request.headers.get("user-agent", "unknown"),
-        }
-
-        # Track tokens — metadata is stored on the first add_token per family
-        access_claims = token_service.decode_token(pair.access_token)
-        refresh_claims = token_service.decode_token(pair.refresh_token)
-        await token_store.add_token(
-            jti=access_claims["jti"],
-            user_id=user_id,
-            token_type="access",
-            expires_at=access_claims["exp"],
-            family_id=family_id,
-            metadata=session_metadata,
-        )
-        await token_store.add_token(
-            jti=refresh_claims["jti"],
-            user_id=user_id,
-            token_type="refresh",
-            expires_at=refresh_claims["exp"],
-            family_id=family_id,
+        pair = await lifecycle.issue(
+            IssueRequest(
+                user_id=str(user.id),
+                roles=list(getattr(user, "roles", [])),
+                fresh=True,
+                session_metadata={
+                    "ip": request.client.host if request.client else "unknown",
+                    "user_agent": request.headers.get("user-agent", "unknown"),
+                },
+            )
         )
 
         transport.set_token(response, pair.access_token)
@@ -98,7 +69,7 @@ def create_password_auth_router(
 
     @router.post("/refresh", response_model=_TokenResponse)
     async def refresh(body: _RefreshRequest, response: Response) -> _TokenResponse:
-        pair = await refresh_service.rotate(body.refresh_token)
+        pair = await lifecycle.refresh(body.refresh_token)
         transport.set_token(response, pair.access_token)
         return _TokenResponse(
             access_token=pair.access_token,
@@ -115,17 +86,7 @@ def create_password_auth_router(
     ) -> None:
         raw = transport.extract_token(request)
         if raw:
-            try:
-                claims = token_service.decode_token(raw)
-            except (InvalidTokenError, TokenExpiredError):
-                transport.delete_token(response)
-                return
-            # Revocation errors propagate (500) so user knows logout failed
-            family_id = await token_store.get_family_id(claims["jti"])
-            if family_id:
-                await token_store.revoke_family(family_id)
-            else:
-                await token_store.revoke(claims["jti"], claims["exp"])
+            await lifecycle.revoke(raw)
         transport.delete_token(response)
 
     @router.post("/logout-all", status_code=204)
@@ -137,12 +98,11 @@ def create_password_auth_router(
         raw = transport.extract_token(request)
         if raw:
             try:
-                claims = token_service.decode_token(raw)
-            except (InvalidTokenError, TokenExpiredError):
+                claims = lifecycle.jwt.decode_token(raw)
+            except Exception:
                 transport.delete_token(response)
                 return
-            # Revocation errors propagate (500) so user knows logout failed
-            await token_store.revoke_all_for_user(claims["sub"])
+            await lifecycle.revoke_all(claims["sub"])
         transport.delete_token(response)
 
     return router

@@ -25,7 +25,7 @@ from urauth.backends.memory import MemoryTokenStore
 from urauth.config import AuthConfig
 from urauth.context import AuthContext
 from urauth.exceptions import UnauthorizedError
-from urauth.tokens.jwt import TokenService
+from urauth.tokens.lifecycle import TokenLifecycle
 from urauth.types import TokenPayload
 
 
@@ -246,7 +246,8 @@ class Auth:
         self.pipeline = pipeline
         self.token_store: TokenStore = token_store or MemoryTokenStore()
         self.session_store = session_store
-        self.token_service = TokenService(self.config)
+        self.lifecycle = TokenLifecycle(self.config, self.token_store)
+        self.token_service = self.lifecycle.jwt  # backward compat
         # Store callable overrides
         self._get_user_fn = get_user
         self._get_user_by_username_fn = get_user_by_username
@@ -270,17 +271,11 @@ class Auth:
             raise UnauthorizedError()
 
         try:
-            payload: TokenPayload = self.token_service.validate_access_token(raw_token)
+            payload: TokenPayload = await self.lifecycle.validate(raw_token)
         except Exception:
             if optional:
                 return AuthContext.anonymous(request=request)
             raise
-
-        # Revocation check
-        if await self.token_store.is_revoked(payload.jti):
-            if optional:
-                return AuthContext.anonymous(request=request)
-            raise UnauthorizedError("Token has been revoked")
 
         # Load user
         user = await maybe_await(self.get_user(payload.sub))

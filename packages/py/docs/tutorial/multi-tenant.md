@@ -41,11 +41,13 @@ The `TenantResolver` tries to resolve the tenant ID from multiple sources, in or
     The tenant ID is embedded in the access token:
 
     ```python
-    # When creating tokens, include tenant_id
-    token_service.create_access_token(
+    from urauth.tokens.lifecycle import IssueRequest
+
+    # When issuing tokens, include tenant_id
+    pair = await core.lifecycle.issue(IssueRequest(
         user_id="1",
         tenant_id="acme-corp",
-    )
+    ))
     ```
 
     The resolver reads the `tenant_id` claim from the JWT.

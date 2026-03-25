@@ -15,7 +15,7 @@ Complete API reference for the `urauth` Python package. All documentation is aut
 | [Role Registry](role-registry.md) | RoleRegistry, checkers, and role caches |
 | [Access Control](access-control.md) | AccessControl, guards, and checker-based authorization |
 | [Pipeline](pipeline.md) | Declarative auth configuration with strategies and login methods |
-| [Tokens](tokens.md) | TokenService, RefreshService, and RevocationService |
+| [Tokens](tokens.md) | TokenLifecycle, TokenService, IssueRequest, IssuedTokenPair |
 | [Transport](transport.md) | Pluggable token extraction: bearer, cookie, hybrid |
 | [Rate Limiting](ratelimit.md) | Framework-agnostic and FastAPI rate limiting |
 | [OAuth2](oauth2.md) | OAuth2 provider models and tenant resolution |

@@ -102,9 +102,8 @@ class TestAutoRefreshTracking:
         register_exception_handlers(app)
         app.add_middleware(
             TokenRefreshMiddleware,
-            token_service=short_svc,
+            lifecycle=core.lifecycle,
             transport=transport,
-            token_store=store,
             threshold=300,
         )
 
@@ -137,16 +136,18 @@ class TestRevokedTokenAutoRefresh:
     async def test_revoked_token_not_auto_refreshed(
         self, config: AuthConfig, store: MemoryTokenStore, core_auth: _Auth
     ) -> None:
+        from urauth.tokens.lifecycle import TokenLifecycle
+
         short_config = AuthConfig(secret_key=SECRET, access_token_ttl=10)
         short_svc = TokenService(short_config)
         transport = CookieTransport(short_config)
+        lifecycle = TokenLifecycle(short_config, store)
 
         app = FastAPI()
         app.add_middleware(
             TokenRefreshMiddleware,
-            token_service=short_svc,
+            lifecycle=lifecycle,
             transport=transport,
-            token_store=store,
             threshold=300,
         )
 
