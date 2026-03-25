@@ -9,14 +9,26 @@ interface TokenRecord {
   revoked: boolean;
 }
 
-/** In-memory token store for development and testing. */
+/**
+ * In-memory token store for development and testing.
+ *
+ * With `strict: true` (default), unknown JTIs are treated as revoked
+ * (fail-closed). Set `strict: false` only if your flow does not call
+ * `addToken()` before checking revocation.
+ */
 export class MemoryTokenStore implements TokenStore {
   private tokens = new Map<string, TokenRecord>();
   private userTokens = new Map<string, Set<string>>();
+  private strict: boolean;
+
+  constructor(opts?: { strict?: boolean }) {
+    this.strict = opts?.strict ?? true;
+  }
 
   async isRevoked(jti: string): Promise<boolean> {
     const rec = this.tokens.get(jti);
-    return rec?.revoked ?? false;
+    if (!rec) return this.strict;
+    return rec.revoked;
   }
 
   async revoke(jti: string, _expiresAt: number): Promise<void> {

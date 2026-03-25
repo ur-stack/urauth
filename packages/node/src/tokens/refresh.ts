@@ -1,7 +1,7 @@
 import type { TokenStore } from "../stores/types";
 import type { AuthConfig } from "../config";
-import type { TokenPair } from "../types";
-import { TokenRevokedError } from "../exceptions";
+import type { TokenPair } from "@urauth/ts";
+import { TokenRevokedError } from "@urauth/ts";
 import { TokenService } from "./jwt";
 
 /** Handles refresh-token rotation with reuse detection. */

@@ -6,25 +6,36 @@
  * Usage:
  *   const Perms = definePermissions({
  *     USER_READ: ["user", "read"],
- *     TASK_WRITE: ["task", "write"],
+ *     TASK_WRITE: "task:write",
+ *     ADMIN_ALL: new Permission("admin", "*"),
  *   });
- *   Perms.USER_READ          // Permission instance
+ *   Perms.USER_READ            // Permission instance
  *   Perms.USER_READ.toString() // "user:read"
  */
 
-import { Permission } from "./primitives";
+import { Permission, type PermissionParser } from "./primitives";
 
-type PermissionDefs = Record<string, [string, string]>;
+type PermissionDef = string | [string, string] | Permission;
+type PermissionDefs = Record<string, PermissionDef>;
 
 type PermissionMap<T extends PermissionDefs> = {
   readonly [K in keyof T]: Permission;
 };
 
-/** Create a frozen map of named Permission instances from [resource, action] tuples. */
-export function definePermissions<T extends PermissionDefs>(defs: T): PermissionMap<T> {
+/** Create a frozen map of named Permission instances. */
+export function definePermissions<T extends PermissionDefs>(
+  defs: T,
+  options?: { parser?: PermissionParser },
+): PermissionMap<T> {
   const result = {} as Record<string, Permission>;
-  for (const [key, [resource, action]] of Object.entries(defs)) {
-    result[key] = new Permission(resource, action);
+  for (const [key, def] of Object.entries(defs)) {
+    if (def instanceof Permission) {
+      result[key] = def;
+    } else if (Array.isArray(def)) {
+      result[key] = new Permission(def[0], def[1]);
+    } else {
+      result[key] = new Permission(def, undefined, { parser: options?.parser });
+    }
   }
   return Object.freeze(result) as PermissionMap<T>;
 }

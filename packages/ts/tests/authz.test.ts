@@ -3,6 +3,8 @@ import {
   Permission,
   Role,
   Relation,
+  RelationTuple,
+  matchPermission,
   AllOf,
   AnyOf,
   allOf,
@@ -13,20 +15,99 @@ import {
   RoleRegistry,
   MemoryRoleCache,
   definePermissions,
+  defineRelations,
   canAccess,
 } from "../src/index";
 
 describe("Permission", () => {
-  test("toString returns resource:action", () => {
+  test("two-arg constructor", () => {
     const p = new Permission("user", "read");
     expect(p.toString()).toBe("user:read");
+    expect(p.resource).toBe("user");
+    expect(p.action).toBe("read");
   });
 
-  test("equals compares string form", () => {
+  test("single-string constructor with colon", () => {
+    const p = new Permission("user:read");
+    expect(p.resource).toBe("user");
+    expect(p.action).toBe("read");
+  });
+
+  test("single-string constructor with dot", () => {
+    const p = new Permission("user.read");
+    expect(p.resource).toBe("user");
+    expect(p.action).toBe("read");
+    expect(p.toString()).toBe("user.read");
+  });
+
+  test("single-string constructor with other separators", () => {
+    expect(new Permission("user|read").resource).toBe("user");
+    expect(new Permission("user|read").action).toBe("read");
+    expect(new Permission("user#read").resource).toBe("user");
+  });
+
+  test("global wildcard *", () => {
+    const p = new Permission("*");
+    expect(p.resource).toBe("*");
+    expect(p.action).toBe("*");
+  });
+
+  test("throws on invalid string (no separator)", () => {
+    expect(() => new Permission("invalid")).toThrow("No separator found");
+  });
+
+  test("semantic equality across separators", () => {
+    const p1 = new Permission("user:read");
+    const p2 = new Permission("user.read");
+    expect(p1.equals(p2)).toBe(true);
+    expect(p1.equals("user.read")).toBe(true);
+    expect(p1.equals("user:read")).toBe(true);
+  });
+
+  test("equals returns false for different permissions", () => {
     const p = new Permission("user", "read");
-    expect(p.equals("user:read")).toBe(true);
     expect(p.equals("user:write")).toBe(false);
-    expect(p.equals(new Permission("user", "read"))).toBe(true);
+    expect(p.equals(new Permission("user", "write"))).toBe(false);
+  });
+
+  test("custom parser", () => {
+    const p = new Permission("urn:service:task:read", undefined, {
+      parser: (s) => {
+        const parts = s.split(":");
+        return [parts[parts.length - 2]!, parts[parts.length - 1]!];
+      },
+    });
+    expect(p.resource).toBe("task");
+    expect(p.action).toBe("read");
+  });
+});
+
+describe("matchPermission", () => {
+  test("exact match", () => {
+    expect(matchPermission("user:read", "user:read")).toBe(true);
+    expect(matchPermission("user:read", "user:write")).toBe(false);
+  });
+
+  test("cross-separator match", () => {
+    expect(matchPermission("user:read", "user.read")).toBe(true);
+    expect(matchPermission("user.read", "user:read")).toBe(true);
+  });
+
+  test("global wildcard", () => {
+    expect(matchPermission("*", "user:read")).toBe(true);
+    expect(matchPermission("*", "anything.here")).toBe(true);
+  });
+
+  test("resource wildcard", () => {
+    expect(matchPermission("user:*", "user:read")).toBe(true);
+    expect(matchPermission("user:*", "user.write")).toBe(true);
+    expect(matchPermission("user:*", "post:read")).toBe(false);
+  });
+
+  test("Permission objects", () => {
+    const pattern = new Permission("user", "*");
+    const target = new Permission("user", "read");
+    expect(matchPermission(pattern, target)).toBe(true);
   });
 });
 
@@ -44,15 +125,89 @@ describe("Role", () => {
 });
 
 describe("Relation", () => {
-  test("toString returns resource#name (Zanzibar format)", () => {
-    const r = new Relation("owner", "post");
+  test("two-arg constructor (resource, name)", () => {
+    const r = new Relation("post", "owner");
+    expect(r.resource).toBe("post");
+    expect(r.name).toBe("owner");
     expect(r.toString()).toBe("post#owner");
   });
 
-  test("equals compares string form", () => {
-    const r = new Relation("owner", "post");
-    expect(r.equals("post#owner")).toBe(true);
+  test("single-string constructor", () => {
+    const r = new Relation("post#owner");
+    expect(r.resource).toBe("post");
+    expect(r.name).toBe("owner");
+    expect(r.toString()).toBe("post#owner");
+  });
+
+  test("single-string with dot separator", () => {
+    const r = new Relation("post.owner");
+    expect(r.resource).toBe("post");
+    expect(r.name).toBe("owner");
+  });
+
+  test("semantic equality across separators", () => {
+    const r1 = new Relation("post#owner");
+    const r2 = new Relation("post.owner");
+    expect(r1.equals(r2)).toBe(true);
+    expect(r1.equals("post.owner")).toBe(true);
+  });
+
+  test("equals returns false for different relations", () => {
+    const r = new Relation("post", "owner");
     expect(r.equals("post#viewer")).toBe(false);
+  });
+
+  test("tuple() creates RelationTuple", () => {
+    const r = new Relation("doc", "owner");
+    const t = r.tuple("readme", "user:alice");
+    expect(t).toBeInstanceOf(RelationTuple);
+    expect(t.objectId).toBe("readme");
+    expect(t.subject).toBe("user:alice");
+    expect(t.relation.equals(r)).toBe(true);
+  });
+});
+
+describe("RelationTuple", () => {
+  test("construction", () => {
+    const rel = new Relation("doc", "owner");
+    const t = new RelationTuple(rel, "readme", "user:alice");
+    expect(t.relation).toBe(rel);
+    expect(t.objectId).toBe("readme");
+    expect(t.subject).toBe("user:alice");
+  });
+
+  test("toString", () => {
+    const rel = new Relation("doc", "owner");
+    const t = new RelationTuple(rel, "readme", "user:alice");
+    expect(t.toString()).toBe("doc:readme#owner@user:alice");
+  });
+
+  test("toString without subject", () => {
+    const rel = new Relation("doc", "owner");
+    const t = new RelationTuple(rel, "readme");
+    expect(t.toString()).toBe("doc:readme#owner");
+  });
+
+  test("parse with subject", () => {
+    const t = RelationTuple.parse("doc:readme#owner@user:alice");
+    expect(t.relation.resource).toBe("doc");
+    expect(t.relation.name).toBe("owner");
+    expect(t.objectId).toBe("readme");
+    expect(t.subject).toBe("user:alice");
+  });
+
+  test("parse without subject", () => {
+    const t = RelationTuple.parse("doc:readme#owner");
+    expect(t.relation.resource).toBe("doc");
+    expect(t.relation.name).toBe("owner");
+    expect(t.objectId).toBe("readme");
+    expect(t.subject).toBeUndefined();
+  });
+
+  test("equals", () => {
+    const t1 = RelationTuple.parse("doc:readme#owner@user:alice");
+    const t2 = new RelationTuple(new Relation("doc", "owner"), "readme", "user:alice");
+    expect(t1.equals(t2)).toBe(true);
   });
 });
 
@@ -112,21 +267,31 @@ describe("AuthContext", () => {
     expect(ctx.hasPermission("user:write")).toBe(false);
   });
 
-  test("hasPermission with wildcard", () => {
+  test("hasPermission cross-separator", () => {
     const ctx = new AuthContext({
       user: { id: "1" },
-      permissions: [new Permission("*", "*")],
+      permissions: [new Permission("user.read")],
     });
-    // "*:*" won't match as global wildcard — only "*" does
-    expect(ctx.hasPermission("anything:here")).toBe(false);
+    expect(ctx.hasPermission("user:read")).toBe(true);
+    expect(ctx.hasPermission("user.read")).toBe(true);
+  });
 
-    const ctx2 = new AuthContext({
+  test("hasPermission with global wildcard", () => {
+    const ctx = new AuthContext({
+      user: { id: "1" },
+      permissions: [new Permission("*")],
+    });
+    expect(ctx.hasPermission("anything:here")).toBe(true);
+  });
+
+  test("hasPermission with resource wildcard", () => {
+    const ctx = new AuthContext({
       user: { id: "1" },
       permissions: [new Permission("user", "*")],
     });
-    expect(ctx2.hasPermission("user:read")).toBe(true);
-    expect(ctx2.hasPermission("user:write")).toBe(true);
-    expect(ctx2.hasPermission("post:read")).toBe(false);
+    expect(ctx.hasPermission("user:read")).toBe(true);
+    expect(ctx.hasPermission("user:write")).toBe(true);
+    expect(ctx.hasPermission("post:read")).toBe(false);
   });
 
   test("hasRole", () => {
@@ -149,14 +314,14 @@ describe("AuthContext", () => {
   });
 
   test("hasRelation", () => {
-    const ownerRel = new Relation("owner", "post");
+    const ownerRel = new Relation("post", "owner");
     const ctx = new AuthContext({
       user: { id: "1" },
-      relations: [[ownerRel, "post-123"]],
+      relations: [ownerRel.tuple("post-123")],
     });
     expect(ctx.hasRelation(ownerRel, "post-123")).toBe(true);
     expect(ctx.hasRelation(ownerRel, "post-456")).toBe(false);
-    expect(ctx.hasRelation(new Relation("editor", "post"), "post-123")).toBe(false);
+    expect(ctx.hasRelation(new Relation("post", "editor"), "post-123")).toBe(false);
   });
 
   test("satisfies evaluates composite requirements", () => {
@@ -188,16 +353,12 @@ describe("StringChecker", () => {
     expect(await checker.hasPermission(ctx, "user", "write")).toBe(false);
   });
 
-  test("wildcard *", async () => {
+  test("global wildcard", async () => {
     const ctx = new AuthContext({
-      permissions: [new Permission("*", "")],
+      permissions: [new Permission("*")],
     });
-    // The "*" permission string is "*:" not "*"
-    // Let's test with a proper global wildcard
-    const ctx2 = new AuthContext({
-      permissions: [{ toString: () => "*", resource: "*", action: "*" } as unknown as Permission],
-    });
-    // Actually, let's just test resource wildcard
+    expect(await checker.hasPermission(ctx, "user", "read")).toBe(true);
+    expect(await checker.hasPermission(ctx, "post", "delete")).toBe(true);
   });
 
   test("resource wildcard user:*", async () => {
@@ -207,6 +368,13 @@ describe("StringChecker", () => {
     expect(await checker.hasPermission(ctx, "user", "read")).toBe(true);
     expect(await checker.hasPermission(ctx, "user", "delete")).toBe(true);
     expect(await checker.hasPermission(ctx, "post", "read")).toBe(false);
+  });
+
+  test("cross-separator matching", async () => {
+    const ctx = new AuthContext({
+      permissions: [new Permission("user.read")],
+    });
+    expect(await checker.hasPermission(ctx, "user", "read")).toBe(true);
   });
 
   test("scope-based permissions", async () => {
@@ -331,7 +499,7 @@ describe("RoleRegistry", () => {
 });
 
 describe("definePermissions", () => {
-  test("creates frozen permission map", () => {
+  test("creates frozen permission map from tuples", () => {
     const Perms = definePermissions({
       USER_READ: ["user", "read"],
       TASK_WRITE: ["task", "write"],
@@ -341,6 +509,72 @@ describe("definePermissions", () => {
     expect(Perms.USER_READ.toString()).toBe("user:read");
     expect(Perms.TASK_WRITE.toString()).toBe("task:write");
     expect(Object.isFrozen(Perms)).toBe(true);
+  });
+
+  test("creates from strings", () => {
+    const Perms = definePermissions({
+      USER_READ: "user:read",
+      TASK_WRITE: "task.write",
+    });
+    expect(Perms.USER_READ.resource).toBe("user");
+    expect(Perms.TASK_WRITE.resource).toBe("task");
+    expect(Perms.TASK_WRITE.action).toBe("write");
+  });
+
+  test("accepts Permission objects", () => {
+    const Perms = definePermissions({
+      ADMIN: new Permission("admin", "*"),
+    });
+    expect(Perms.ADMIN.action).toBe("*");
+  });
+
+  test("custom parser", () => {
+    const Perms = definePermissions(
+      { TASK_READ: "urn:service:task:read" },
+      {
+        parser: (s) => {
+          const parts = s.split(":");
+          return [parts[parts.length - 2]!, parts[parts.length - 1]!];
+        },
+      },
+    );
+    expect(Perms.TASK_READ.resource).toBe("task");
+    expect(Perms.TASK_READ.action).toBe("read");
+  });
+});
+
+describe("defineRelations", () => {
+  test("creates from strings", () => {
+    const Rels = defineRelations({
+      DOC_OWNER: "doc#owner",
+      DOC_VIEWER: "doc.viewer",
+    });
+    expect(Rels.DOC_OWNER).toBeInstanceOf(Relation);
+    expect(Rels.DOC_OWNER.resource).toBe("doc");
+    expect(Rels.DOC_OWNER.name).toBe("owner");
+    expect(Object.isFrozen(Rels)).toBe(true);
+  });
+
+  test("creates from tuples", () => {
+    const Rels = defineRelations({
+      DOC_OWNER: ["doc", "owner"],
+    });
+    expect(Rels.DOC_OWNER.resource).toBe("doc");
+    expect(Rels.DOC_OWNER.name).toBe("owner");
+  });
+
+  test("accepts Relation objects", () => {
+    const Rels = defineRelations({
+      DOC_OWNER: new Relation("doc", "owner"),
+    });
+    expect(Rels.DOC_OWNER.resource).toBe("doc");
+  });
+
+  test("tuple() delegation", () => {
+    const Rels = defineRelations({ DOC_OWNER: "doc#owner" });
+    const t = Rels.DOC_OWNER.tuple("readme", "user:alice");
+    expect(t).toBeInstanceOf(RelationTuple);
+    expect(t.toString()).toBe("doc:readme#owner@user:alice");
   });
 });
 

@@ -1,0 +1,28 @@
+{
+  "name": "@urauth/hono",
+  "version": "0.1.0",
+  "description": "Hono middleware adapter for urauth — authentication, guards, and auto-generated routes",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@urauth/node": "workspace:*",
+    "@urauth/ts": "workspace:*"
+  },
+  "peerDependencies": {
+    "hono": ">=4.0.0"
+  },
+  "devDependencies": {
+    "hono": "^4.0.0",
+    "typescript": "^5.5.0",
+    "@types/node": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

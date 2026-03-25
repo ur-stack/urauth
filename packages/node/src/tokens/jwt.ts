@@ -1,8 +1,8 @@
 import * as jose from "jose";
 import type { AuthConfig } from "../config";
-import { defaultConfig } from "../config";
-import { InvalidTokenError, TokenExpiredError } from "../exceptions";
-import type { TokenPayload, TokenPair } from "../types";
+import { defaultConfig, validateConfig } from "../config";
+import { InvalidTokenError, TokenExpiredError } from "@urauth/ts";
+import type { TokenPayload, TokenPair } from "@urauth/ts";
 
 /**
  * Verify and decode a JWT token.
@@ -40,6 +40,7 @@ export interface CreateAccessTokenOptions {
   scopes?: string[];
   roles?: string[];
   tenantId?: string;
+  tenantPath?: Record<string, string>;
   fresh?: boolean;
   extraClaims?: Record<string, unknown>;
 }
@@ -58,6 +59,7 @@ export class TokenService {
   private secret: Uint8Array;
 
   constructor(config: AuthConfig) {
+    validateConfig(config);
     this.config = config;
     this.secret = new TextEncoder().encode(config.secretKey);
   }
@@ -79,9 +81,13 @@ export class TokenService {
     tokenType: string,
     ttl: number,
   ): Record<string, unknown> {
+    const uid = String(userId).trim();
+    if (!uid) {
+      throw new Error("userId must be a non-empty string");
+    }
     const now = Math.floor(Date.now() / 1000);
     const claims: Record<string, unknown> = {
-      sub: String(userId),
+      sub: uid,
       jti: crypto.randomUUID().replace(/-/g, ""),
       iat: now,
       exp: now + ttl,
@@ -106,9 +112,23 @@ export class TokenService {
     const claims = this.baseClaims(userId, "access", this.accessTtl);
     if (opts?.scopes) claims.scopes = opts.scopes;
     if (opts?.roles) claims.roles = opts.roles;
-    if (opts?.tenantId) claims.tenant_id = opts.tenantId;
+    if (opts?.tenantPath) {
+      claims.tenant_path = opts.tenantPath;
+      // Backward compat: also set flat tenant_id to last value
+      const values = Object.values(opts.tenantPath);
+      if (values.length > 0) claims.tenant_id = values[values.length - 1];
+    } else if (opts?.tenantId) {
+      claims.tenant_id = opts.tenantId;
+    }
     if (opts?.fresh) claims.fresh = true;
-    if (opts?.extraClaims) Object.assign(claims, opts.extraClaims);
+    if (opts?.extraClaims) {
+      const reserved = new Set(["sub", "jti", "iat", "exp", "iss", "aud", "type"]);
+      for (const [key, value] of Object.entries(opts.extraClaims)) {
+        if (!reserved.has(key)) {
+          claims[key] = value;
+        }
+      }
+    }
     return this.sign(claims);
   }
 

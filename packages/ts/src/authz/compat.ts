@@ -3,7 +3,7 @@
  */
 
 import type { AuthContext } from "../context";
-import { Permission } from "./primitives";
+import { Permission, matchPermission } from "./primitives";
 
 /** Sync permission checker interface. */
 export interface PermissionChecker {
@@ -43,14 +43,8 @@ export function canAccess(
   // Handle scope
   if (options?.scope && ctx.scopes.has(options.scope)) {
     const scopePerms = ctx.scopes.get(options.scope)!;
-    const required = `${resource}:${actionStr}`;
-    for (const p of scopePerms) {
-      const pStr = p.toString();
-      if (pStr === "*") return true;
-      if (pStr === required) return true;
-      if (pStr.endsWith(":*") && pStr.slice(0, -2) === resource) return true;
-    }
-    return false;
+    const required = new Permission(resource, actionStr);
+    return scopePerms.some((p) => matchPermission(p, required));
   }
 
   return ctx.hasPermission(new Permission(resource, actionStr));

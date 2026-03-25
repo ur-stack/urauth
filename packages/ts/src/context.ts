@@ -7,16 +7,18 @@
 
 import type { TokenPayload } from "./types";
 import type { Requirement } from "./authz/requirement";
-import { Permission, Role, Relation } from "./authz/primitives";
+import { Permission, Role, Relation, RelationTuple, matchPermission } from "./authz/primitives";
+import type { TenantPath } from "./tenant/hierarchy";
 
 export interface AuthContextOptions {
   user?: unknown;
   roles?: Role[];
   permissions?: Permission[];
-  relations?: Array<[Relation, string]>;
+  relations?: RelationTuple[];
   scopes?: Map<string, Permission[]>;
   token?: TokenPayload;
   request?: unknown;
+  tenant?: TenantPath;
   authenticated?: boolean;
 }
 
@@ -24,10 +26,11 @@ export class AuthContext {
   readonly user: unknown;
   readonly roles: Role[];
   readonly permissions: Permission[];
-  readonly relations: Array<[Relation, string]>;
+  readonly relations: RelationTuple[];
   readonly scopes: Map<string, Permission[]>;
   readonly token: TokenPayload | undefined;
   readonly request: unknown;
+  readonly tenant: TenantPath | undefined;
   private _authenticated: boolean;
 
   constructor(opts: AuthContextOptions = {}) {
@@ -38,6 +41,7 @@ export class AuthContext {
     this.scopes = opts.scopes ?? new Map();
     this.token = opts.token;
     this.request = opts.request;
+    this.tenant = opts.tenant;
     this._authenticated = opts.authenticated ?? true;
   }
 
@@ -54,26 +58,10 @@ export class AuthContext {
     return this._authenticated && this.user != null;
   }
 
-  /** Check if the context holds a permission (supports wildcards). */
+  /** Check if the context holds a permission (supports wildcards). Comparison is semantic — separator-agnostic. */
   hasPermission(permission: Permission | string): boolean {
-    const permStr = typeof permission === "string" ? permission : permission.toString();
-
-    for (const p of this.permissions) {
-      const pStr = p.toString();
-      if (pStr === "*") return true;
-      if (pStr === permStr) return true;
-      // Resource wildcard: "user:*" matches "user:read"
-      if (pStr.endsWith(":*")) {
-        const prefix = pStr.slice(0, -2);
-        if (permission instanceof Permission && String(permission.resource) === prefix) {
-          return true;
-        }
-        if (permStr.includes(":") && permStr.split(":")[0] === prefix) {
-          return true;
-        }
-      }
-    }
-    return false;
+    const target = typeof permission === "string" ? new Permission(permission) : permission;
+    return this.permissions.some((p) => matchPermission(p, target));
   }
 
   /** Check if the context holds a specific role. */
@@ -90,7 +78,7 @@ export class AuthContext {
   /** Check if the context holds a specific Zanzibar relation to a resource. */
   hasRelation(relation: Relation, resourceId: string): boolean {
     return this.relations.some(
-      ([r, rid]) => r.name === relation.name && r.resource === relation.resource && rid === resourceId,
+      (rt) => rt.relation.equals(relation) && rt.objectId === resourceId,
     );
   }
 
@@ -99,4 +87,21 @@ export class AuthContext {
     return requirement.evaluate(this);
   }
 
+  /** The leaf tenant ID (backward compat with flat tenant_id). */
+  get tenantId(): string | undefined {
+    if (this.tenant !== undefined) return this.tenant.leafId;
+    return this.token?.tenant_id;
+  }
+
+  /** Check if the current context is within a specific tenant (at any level). */
+  inTenant(tenantId: string): boolean {
+    if (this.tenant === undefined) return false;
+    return this.tenant.isDescendantOf(tenantId);
+  }
+
+  /** Get the tenant ID at a specific hierarchy level. */
+  atLevel(level: string): string | undefined {
+    if (this.tenant === undefined) return undefined;
+    return this.tenant.idAt(level);
+  }
 }

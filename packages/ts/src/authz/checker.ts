@@ -3,6 +3,7 @@
  */
 
 import type { AuthContext } from "../context";
+import { Permission, matchPermission } from "./primitives";
 
 /** Async permission checker interface (AuthContext-based) for server-side use. */
 export interface AsyncPermissionChecker {
@@ -17,41 +18,28 @@ export interface AsyncPermissionChecker {
 /**
  * Default checker — matches "resource:action" against context permissions.
  *
- * Supports:
- * - Exact match: "user:read"
+ * Comparison is semantic (separator-agnostic):
+ * - Exact match: "user:read" matches "user.read"
  * - Wildcard: "*" grants everything
  * - Resource wildcard: "user:*" grants all actions on "user"
  */
 export class StringChecker implements AsyncPermissionChecker {
-  private separator: string;
-
-  constructor(options?: { separator?: string }) {
-    this.separator = options?.separator ?? ":";
-  }
-
   async hasPermission(
     ctx: AuthContext,
     resource: string,
     action: string,
     options?: { scope?: string },
   ): Promise<boolean> {
-    const required = `${resource}${this.separator}${action}`;
+    const required = new Permission(resource, action);
 
-    let perms = ctx.permissions.map((p) => p.toString());
-
+    let perms: Permission[];
     if (options?.scope != null && ctx.scopes.has(options.scope)) {
-      perms = ctx.scopes.get(options.scope)!.map((p) => p.toString());
+      perms = ctx.scopes.get(options.scope)!;
+    } else {
+      perms = ctx.permissions;
     }
 
-    for (const perm of perms) {
-      if (perm === "*") return true;
-      if (perm === required) return true;
-      if (perm.endsWith(`${this.separator}*`)) {
-        const prefix = perm.slice(0, -(this.separator.length + 1));
-        if (prefix === resource) return true;
-      }
-    }
-    return false;
+    return perms.some((p) => matchPermission(p, required));
   }
 }
 
@@ -61,17 +49,14 @@ export class StringChecker implements AsyncPermissionChecker {
 export class RoleExpandingChecker implements AsyncPermissionChecker {
   private rolePermissions: Map<string, Set<string>>;
   private hierarchy: Map<string, string[]>;
-  private separator: string;
   private expanded = new Map<string, Set<string>>();
 
   constructor(options: {
     rolePermissions: Map<string, Set<string>>;
     hierarchy?: Map<string, string[]>;
-    separator?: string;
   }) {
     this.rolePermissions = options.rolePermissions;
     this.hierarchy = options.hierarchy ?? new Map();
-    this.separator = options.separator ?? ":";
     this.buildExpansion();
   }
 
@@ -123,7 +108,6 @@ export class RoleExpandingChecker implements AsyncPermissionChecker {
     ctx: AuthContext,
     resource: string,
     action: string,
-    options?: { scope?: string },
   ): Promise<boolean> {
     const roleNames = ctx.roles.map((r) => r.name);
     const effective = this.effectiveRoles(roleNames);
@@ -134,11 +118,10 @@ export class RoleExpandingChecker implements AsyncPermissionChecker {
       perms.add(p.toString());
     }
 
-    const required = `${resource}${this.separator}${action}`;
-
-    if (perms.has("*")) return true;
-    if (perms.has(required)) return true;
-    if (perms.has(`${resource}${this.separator}*`)) return true;
+    const required = new Permission(resource, action);
+    for (const permStr of perms) {
+      if (matchPermission(new Permission(permStr), required)) return true;
+    }
     return false;
   }
 }

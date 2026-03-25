@@ -9,6 +9,7 @@ export interface TokenPayload {
   roles?: string[];
   permissions?: string[];
   tenant_id?: string;
+  tenant_path?: Record<string, string>;
   fresh?: boolean;
   family_id?: string;
   [key: string]: unknown;
