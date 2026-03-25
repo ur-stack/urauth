@@ -3,3 +3,7 @@ packages:
   - "packages/node"
   - "packages/vue"
   - "packages/nuxt"
+  - "packages/hono"
+  - "packages/express"
+  - "packages/fastify"
+  - "packages/h3"

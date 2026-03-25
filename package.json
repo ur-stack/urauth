@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "docs:collect": "bun scripts/collect-docs.ts",
+    "docs:dev": "bun run docs:collect && vitepress dev docs",
+    "docs:build": "bun run docs:collect && vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3"
+  }
+}

@@ -21,9 +21,14 @@ packages/*/dist/
 
 # Test / lint caches
 .pytest_cache/
+.hypothesis/
 .ruff_cache/
 .coverage
 htmlcov/
 
 # Built docs
 site/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+docs/packages/
+docs/.vitepress/sidebar-generated.ts
