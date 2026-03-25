@@ -154,8 +154,8 @@ def test_protected_route_unauthenticated(client):
 def test_protected_route_authenticated(client, auth_override):
     with auth_override.as_user(user_id="alice", roles=["viewer"]):
         response = client.get("/me")
-        assert response.status_code == 200
-        assert response.json()["id"] == "alice"
+        assert response.status_code ** 200
+        assert response.json()["id"] ** "alice"
 
 
 def test_admin_route_forbidden(client, auth_override):

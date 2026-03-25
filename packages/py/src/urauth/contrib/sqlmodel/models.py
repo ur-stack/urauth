@@ -37,3 +37,36 @@ class RoleBase(SQLModel):
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(unique=True, max_length=50)
     description: str = Field(default="", max_length=255)
+
+
+class TenantBase(SQLModel):
+    """Base fields for a tenant hierarchy node. Subclass with ``table=True``.
+
+    Usage::
+
+        class Tenant(TenantBase, table=True):
+            __tablename__ = "tenants"
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=255)
+    slug: str = Field(unique=True, index=True, max_length=255)
+    level: str = Field(index=True, max_length=50)
+    parent_id: int | None = Field(default=None, index=True)
+    is_active: bool = Field(default=True)
+    created_at: datetime | None = Field(default=None)
+
+
+class TenantRoleBase(SQLModel):
+    """Base fields for a tenant-scoped role. Subclass with ``table=True``.
+
+    Usage::
+
+        class TenantRole(TenantRoleBase, table=True):
+            __tablename__ = "tenant_roles"
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=50)
+    description: str = Field(default="", max_length=255)
+    tenant_id: int = Field(index=True)

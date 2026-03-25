@@ -7,7 +7,7 @@ The `Pipeline` is a single declarative configuration for your entire auth setup 
 Instead of manually wiring routers for each feature (password login, OAuth, refresh, logout, MFA, etc.), you declare what you want in one place:
 
 ```python
-from urauth.pipeline import Pipeline, JWTStrategy, OAuthLogin, Google, MFA
+from urauth.pipeline import Pipeline, JWTStrategy, OAuthLogin, Google, MFAMethod
 
 pipeline = Pipeline(
     strategy=JWTStrategy(refresh=True, revocable=True),
@@ -15,7 +15,7 @@ pipeline = Pipeline(
     oauth=OAuthLogin(providers=[
         Google(client_id="...", client_secret="..."),
     ]),
-    mfa=MFA(methods=["otp"]),
+    mfa=[MFAMethod(method="otp", required=False)],
     password_reset=True,
     account_linking=True,
 )
@@ -228,24 +228,25 @@ Or simply `passkey=True` for defaults. Requires overriding `create_passkey_chall
 Add a second factor after the primary login:
 
 ```python
-from urauth.pipeline import MFA
+from urauth.pipeline import MFAMethod
 
 Pipeline(
     password=True,
-    mfa=MFA(
-        methods=["otp", "passkey"],  # allowed MFA methods
-        required=False,               # only enrolled users are prompted
-        grace_period=0,               # seconds after fresh login before MFA required again
-    ),
+    mfa=[
+        MFAMethod(method="otp", required=False),
+        MFAMethod(method="passkey"),
+    ],
     ...
 )
 ```
 
+Each `MFAMethod` configures a single MFA method independently:
+
 | Parameter | Description |
 |-----------|-------------|
-| `methods` | List of allowed MFA methods: `"otp"` and/or `"passkey"` |
-| `required` | If `True`, all users must complete MFA. If `False`, only enrolled users are prompted |
-| `grace_period` | Seconds after a fresh login before MFA is required again. `0` means always required |
+| `method` | The MFA method type: `"otp"` or `"passkey"` |
+| `required` | If `True`, all users must complete this method. If `False` (default), only enrolled users are prompted |
+| `grace_period` | Seconds after a fresh login before this method is required again. `0` means always required |
 
 Requires overriding `is_mfa_enrolled(user)`, `enroll_mfa(user, method)`, and `verify_mfa(user, method, code)`.
 
@@ -334,7 +335,7 @@ The generated routes depend on your pipeline configuration:
 | `magic_link=MagicLinkLogin()` | `POST /auth/magic-link/send`, `POST /auth/magic-link/verify` |
 | `otp=OTPLogin()` | `POST /auth/otp/verify` |
 | `passkey=True` | `POST /auth/passkey/challenge`, `POST /auth/passkey/register`, `POST /auth/passkey/login` |
-| `mfa=MFA(...)` | `POST /auth/mfa/enroll`, `POST /auth/mfa/verify` |
+| `mfa=[MFAMethod(...)]` | `POST /auth/mfa/enroll`, `POST /auth/mfa/verify` |
 | `password_reset=True` | `POST /password/forgot`, `POST /password/reset/confirm`, `POST /password/reset/complete` |
 | `account_linking=True` | `POST /auth/link/{provider}`, `DELETE /auth/link/{provider}`, `GET /auth/linked-accounts` |
 
@@ -375,7 +376,7 @@ from urauth.fastapi.auth import FastAuth
 from urauth.pipeline import (
     Google,
     Identifiers,
-    MFA,
+    MFAMethod,
     OAuthLogin,
     Pipeline,
     JWTStrategy,
@@ -462,7 +463,7 @@ pipeline = Pipeline(
     oauth=OAuthLogin(providers=[
         Google(client_id="your-client-id", client_secret="your-client-secret"),
     ]),
-    mfa=MFA(methods=["otp"], required=False),
+    mfa=[MFAMethod(method="otp", required=False)],
     password_reset=True,
     account_linking=True,
     identifiers=Identifiers(email=True),

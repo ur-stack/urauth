@@ -8,11 +8,12 @@ creation, tracking, and revocation across multiple objects.
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from urauth.backends.base import TokenStore
 from urauth.config import AuthConfig
+from urauth.events import AuthEvent, AuthEventHandler, NullEventHandler
 from urauth.exceptions import InvalidTokenError, TokenExpiredError, TokenRevokedError, UnauthorizedError
 from urauth.tokens.jwt import TokenService
 from urauth.types import TokenPayload
@@ -26,6 +27,7 @@ class IssueRequest:
     roles: list[str] | None = None
     scopes: list[str] | None = None
     tenant_id: str | None = None
+    tenant_path: dict[str, str] | None = None
     fresh: bool = False
     extra_claims: dict[str, Any] | None = None
     session_metadata: dict[str, Any] | None = None
@@ -53,10 +55,12 @@ class TokenLifecycle:
         self,
         config: AuthConfig,
         token_store: TokenStore,
+        event_handler: AuthEventHandler | None = None,
     ) -> None:
         self._config = config
         self.store = token_store
         self._token_service = TokenService(config)
+        self._events: AuthEventHandler = event_handler or NullEventHandler()
 
     @property
     def jwt(self) -> TokenService:
@@ -80,6 +84,7 @@ class TokenLifecycle:
             scopes=request.scopes,
             roles=request.roles,
             tenant_id=request.tenant_id,
+            tenant_path=request.tenant_path,
             fresh=request.fresh,
             extra_claims=request.extra_claims,
             family_id=family_id,
@@ -105,11 +110,17 @@ class TokenLifecycle:
             family_id=family_id,
         )
 
-        return IssuedTokenPair(
+        result = IssuedTokenPair(
             access_token=pair.access_token,
             refresh_token=pair.refresh_token,
             family_id=family_id,
         )
+        await self._events.handle(AuthEvent(
+            event_type="token.issued",
+            user_id=request.user_id,
+            metadata={"family_id": family_id},
+        ))
+        return result
 
     # ── Refresh (rotate) ─────────────────────────────────────
 
@@ -131,6 +142,11 @@ class TokenLifecycle:
                 await self.store.revoke_family(family_id)
             else:
                 await self.store.revoke_all_for_user(user_id)
+            await self._events.handle(AuthEvent(
+                event_type="token.reuse_detected",
+                user_id=user_id,
+                metadata={"family_id": family_id or "unknown"},
+            ))
             raise TokenRevokedError("Refresh token reuse detected — all tokens revoked")
 
         # Revoke the old refresh token
@@ -160,11 +176,17 @@ class TokenLifecycle:
             family_id=family_id,
         )
 
-        return IssuedTokenPair(
+        result = IssuedTokenPair(
             access_token=pair.access_token,
             refresh_token=pair.refresh_token,
             family_id=family_id,
         )
+        await self._events.handle(AuthEvent(
+            event_type="token.refreshed",
+            user_id=user_id,
+            metadata={"family_id": family_id},
+        ))
+        return result
 
     # ── Revoke (logout) ──────────────────────────────────────
 
@@ -187,6 +209,7 @@ class TokenLifecycle:
     async def revoke_all(self, user_id: str) -> None:
         """Revoke ALL tokens for a user (global logout, password change, account disable)."""
         await self.store.revoke_all_for_user(user_id)
+        await self._events.handle(AuthEvent(event_type="token.revoked", user_id=user_id))
 
     # ── Validate (middleware / build_context) ─────────────────
 

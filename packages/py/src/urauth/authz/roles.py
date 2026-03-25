@@ -18,9 +18,9 @@ class RoleRegistry:
     _CACHE_KEY_HIERARCHY = "role_hierarchy"
 
     def __init__(self) -> None:
-        self._static_roles: dict[str, set[str]] = {}
+        self._static_roles: dict[str, set[Permission]] = {}
         self._static_hierarchy: dict[str, list[str]] = {}
-        self._loaded_roles: dict[str, set[str]] = {}
+        self._loaded_roles: dict[str, set[Permission]] = {}
         self._loaded_hierarchy: dict[str, list[str]] = {}
         self._loader: RoleLoader | None = None
         self._cache: RoleCache | None = None
@@ -34,7 +34,9 @@ class RoleRegistry:
         inherits: list[str] | None = None,
     ) -> None:
         """Register a static role."""
-        self._static_roles[name] = {str(p) for p in permissions}
+        self._static_roles[name] = {
+            p if isinstance(p, Permission) else Permission(str(p)) for p in permissions
+        }
         if inherits:
             self._static_hierarchy[name] = list(inherits)
 
@@ -70,23 +72,25 @@ class RoleRegistry:
         if self._loader is None:
             return
 
-        roles: dict[str, set[str]] | None = None
+        roles: dict[str, set[Permission]] | None = None
         hierarchy: dict[str, list[str]] | None = None
 
         if self._cache is not None:
             cached_roles = await self._cache.get(self._CACHE_KEY_ROLES)
             cached_hierarchy = await self._cache.get(self._CACHE_KEY_HIERARCHY)
             if cached_roles is not None and cached_hierarchy is not None:
-                roles = {k: set(v) for k, v in cached_roles.items()}
+                roles = {k: {Permission(v) for v in vs} for k, vs in cached_roles.items()}
                 hierarchy = cached_hierarchy
 
         if roles is None:
-            roles = await self._loader.load_roles()
+            loaded = await self._loader.load_roles()
             hierarchy = await self._loader.load_hierarchy()
+            # Loader returns dict[str, set[str]], convert to Permission objects
+            roles = {k: {Permission(v) for v in vs} for k, vs in loaded.items()}
             if self._cache is not None:
                 await self._cache.set(
                     self._CACHE_KEY_ROLES,
-                    {k: list(v) for k, v in roles.items()},
+                    {k: [str(v) for v in vs] for k, vs in roles.items()},
                     self._cache_ttl,
                 )
                 await self._cache.set(
@@ -105,7 +109,7 @@ class RoleRegistry:
             await self._cache.invalidate(self._CACHE_KEY_HIERARCHY)
         await self.load()
 
-    def _merged_roles(self) -> dict[str, set[str]]:
+    def _merged_roles(self) -> dict[str, set[Permission]]:
         """Merge loaded roles with static roles. Static takes precedence."""
         merged = dict(self._loaded_roles)
         for name, perms in self._static_roles.items():

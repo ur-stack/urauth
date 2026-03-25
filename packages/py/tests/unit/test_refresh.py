@@ -13,7 +13,7 @@ from urauth.tokens.refresh import RefreshService
 
 @pytest.fixture
 def config() -> AuthConfig:
-    return AuthConfig(secret_key="test-secret")
+    return AuthConfig(secret_key="test-secret", allow_insecure_key=True)
 
 
 @pytest.fixture

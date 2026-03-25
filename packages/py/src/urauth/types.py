@@ -43,8 +43,17 @@ class TokenPayload:
     scopes: list[str] = field(default_factory=list)
     roles: list[str] = field(default_factory=list)
     tenant_id: str | None = None
+    tenant_path: dict[str, str] | None = None
     fresh: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
+
+
+@runtime_checkable
+class HierarchicalTenantUser(TenantUser, Protocol):
+    """User scoped to a hierarchical tenant with full path context."""
+
+    @property
+    def tenant_path(self) -> dict[str, str]: ...
 
 
 @dataclass(frozen=True, slots=True)

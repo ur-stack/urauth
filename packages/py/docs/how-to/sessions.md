@@ -134,9 +134,12 @@ store = RedisSessionStore(redis, prefix="session:")
 session_manager = SessionManager(store, config)
 ```
 
-!!! warning
-    `MemorySessionStore` does not persist across restarts. Use `RedisSessionStore` in production.
 
+> **`warning`** — See source code for full API.
+
+`MemorySessionStore` does not persist across restarts. Use `RedisSessionStore` in production.
+
+:::
 ## Session Config Fields
 
 | Field | Type | Default | Description |

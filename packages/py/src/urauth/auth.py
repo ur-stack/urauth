@@ -19,12 +19,13 @@ import inspect
 from collections.abc import Callable
 from typing import Any
 
-from urauth.authz.primitives import Permission, Relation, Role
+from urauth.authz.primitives import Permission, Relation, RelationTuple, Role
 from urauth.backends.base import SessionStore, TokenStore
 from urauth.backends.memory import MemoryTokenStore
 from urauth.config import AuthConfig
 from urauth.context import AuthContext
 from urauth.exceptions import UnauthorizedError
+from urauth.tenant.hierarchy import TenantPath
 from urauth.tokens.lifecycle import TokenLifecycle
 from urauth.types import TokenPayload
 
@@ -113,7 +114,7 @@ class Auth:
             return self._get_user_permissions_fn(user)
         return []
 
-    def get_user_relations(self, user: Any) -> list[tuple[Relation, str]]:
+    def get_user_relations(self, user: Any) -> list[RelationTuple]:
         return []
 
     def check_relation(self, user: Any, relation: Relation, resource_id: str) -> bool:
@@ -128,7 +129,7 @@ class Auth:
                 "check_relation default impl can't call async get_user_relations. "
                 "Override check_relation with an async method."
             )
-        return any(r == relation and rid == resource_id for r, rid in result)
+        return any(rt.relation == relation and rt.object_id == resource_id for rt in result)
 
     # ── Identifier resolution ──────────────────────────────────
 
@@ -226,6 +227,33 @@ class Auth:
     def verify_mfa(self, user: Any, method: str, code: str) -> bool:
         raise NotImplementedError("Override verify_mfa() to use MFA")
 
+    # ── Tenant hierarchy hooks ────────────────────────────────
+
+    def resolve_tenant_path(self, user: Any, payload: TokenPayload | None) -> TenantPath | None:
+        """Resolve the tenant hierarchy path for the current context.
+
+        Default reads ``tenant_path`` from the token claim, falling back
+        to wrapping ``tenant_id`` in a single-node path. Override to
+        resolve hierarchy from your database.
+        """
+        if payload and payload.tenant_path:
+            return TenantPath.from_claim(payload.tenant_path)
+        if payload and payload.tenant_id:
+            return TenantPath.from_flat(payload.tenant_id)
+        tenant_id = getattr(user, "tenant_id", None) if user else None
+        if tenant_id:
+            return TenantPath.from_flat(str(tenant_id))
+        return None
+
+    def get_tenant_permissions(self, user: Any, level: str, tenant_id: str) -> list[Permission]:
+        """Return permissions scoped to a specific tenant level.
+
+        Override to load tenant-scoped permissions from your database.
+        Called for each level in the tenant path (root → leaf) to support
+        cascading permission inheritance.
+        """
+        return []
+
     # ── Constructor ────────────────────────────────────────────
 
     def __init__(
@@ -235,6 +263,7 @@ class Auth:
         token_store: TokenStore | None = None,
         session_store: SessionStore | None = None,
         pipeline: Any | None = None,
+        event_handler: Any | None = None,
         # Optional callables — pass these to avoid subclassing
         get_user: Callable[..., Any] | None = None,
         get_user_by_username: Callable[..., Any] | None = None,
@@ -246,7 +275,7 @@ class Auth:
         self.pipeline = pipeline
         self.token_store: TokenStore = token_store or MemoryTokenStore()
         self.session_store = session_store
-        self.lifecycle = TokenLifecycle(self.config, self.token_store)
+        self.lifecycle = TokenLifecycle(self.config, self.token_store, event_handler=event_handler)
         self.token_service = self.lifecycle.jwt  # backward compat
         # Store callable overrides
         self._get_user_fn = get_user
@@ -314,13 +343,28 @@ class Auth:
         for role in roles:
             all_permissions.extend(role.permissions)
 
+        # Resolve tenant hierarchy
+        tenant_path = await maybe_await(self.resolve_tenant_path(user, payload))
+
+        # Build scoped permissions from tenant hierarchy (cascading inheritance)
+        scopes: dict[str, list[Permission]] = {}
+        if tenant_path is not None:
+            for node in tenant_path:
+                level_perms = await maybe_await(
+                    self.get_tenant_permissions(user, node.level, node.id)
+                )
+                if level_perms:
+                    scopes[node.level] = level_perms
+
         return AuthContext(
             user=user,
             roles=roles,
             permissions=all_permissions,
             relations=relations,
+            scopes=scopes,
             token=payload,
             request=request,
+            tenant=tenant_path,
         )
 
     # ── Sync wrappers ──────────────────────────────────────────

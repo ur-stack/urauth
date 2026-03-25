@@ -7,6 +7,7 @@ import pytest
 from urauth.authz.primitives import (
     Permission,
     Relation,
+    RelationTuple,
     Role,
     match_permission,
 )
@@ -30,21 +31,23 @@ class TestWildcardPermissionMatching:
         assert match_permission("user:read", "user:read") is True
         assert match_permission("user:read", "user:write") is False
 
-    def test_action_wildcard_not_supported(self) -> None:
-        """*:read is NOT a supported pattern — only resource:* and *."""
-        assert match_permission("*:read", "user:read") is False
+    def test_resource_star_matches_all(self) -> None:
+        """*:read matches anything because resource='*' is a global wildcard."""
+        assert match_permission("*:read", "user:read") is True
 
     def test_empty_strings(self) -> None:
-        assert match_permission("", "") is True
-        assert match_permission("", "user:read") is False
+        with pytest.raises(ValueError):
+            match_permission("", "")
+        with pytest.raises(ValueError):
+            match_permission("", "user:read")
 
-    def test_no_separator(self) -> None:
-        assert match_permission("admin", "admin") is True
-        assert match_permission("admin", "user") is False
+    def test_no_separator_raises(self) -> None:
+        with pytest.raises(ValueError):
+            match_permission("admin", "admin")
 
     def test_custom_separator(self) -> None:
-        assert match_permission("user.read", "user.read", separator=".") is True
-        assert match_permission("user.*", "user.read", separator=".") is True
+        assert match_permission("user.read", "user.read") is True
+        assert match_permission("user.*", "user.read") is True
 
 
 # ── Relation.evaluate ignores resource_id ─────────────────────
@@ -58,36 +61,36 @@ class TestRelationEvaluateResourceIdGap:
     """
 
     def test_relation_evaluate_matches_any_resource_id(self) -> None:
-        """Relation('owner', 'post') matches even if the context only has ownership of post#123."""
-        owner = Relation("owner", "post")
+        """Relation('post', 'owner') matches even if the context only has ownership of post#123."""
+        owner = Relation("post", "owner")
         ctx = AuthContext(
             user={"id": "user-1"},
-            relations=[(owner, "post-123")],  # Only owns post-123
+            relations=[RelationTuple(owner, "post-123")],  # Only owns post-123
         )
         # evaluate() returns True — it doesn't check which post
         assert owner.evaluate(ctx) is True
 
     def test_has_relation_checks_specific_resource_id(self) -> None:
         """AuthContext.has_relation() correctly checks the specific resource_id."""
-        owner = Relation("owner", "post")
+        owner = Relation("post", "owner")
         ctx = AuthContext(
             user={"id": "user-1"},
-            relations=[(owner, "post-123")],
+            relations=[RelationTuple(owner, "post-123")],
         )
         assert ctx.has_relation(owner, "post-123") is True
         assert ctx.has_relation(owner, "post-999") is False
 
     def test_relation_evaluate_no_relations(self) -> None:
-        owner = Relation("owner", "post")
+        owner = Relation("post", "owner")
         ctx = AuthContext(user={"id": "user-1"}, relations=[])
         assert owner.evaluate(ctx) is False
 
     def test_relation_evaluate_different_relation_type(self) -> None:
-        owner = Relation("owner", "post")
-        viewer = Relation("viewer", "post")
+        owner = Relation("post", "owner")
+        viewer = Relation("post", "viewer")
         ctx = AuthContext(
             user={"id": "user-1"},
-            relations=[(viewer, "post-123")],
+            relations=[RelationTuple(viewer, "post-123")],
         )
         assert owner.evaluate(ctx) is False
         assert viewer.evaluate(ctx) is True
@@ -181,7 +184,7 @@ class TestCompositeRequirements:
 
     def test_mixed_permission_and_relation(self) -> None:
         read = Permission("task", "read")
-        owner = Relation("owner", "task")
+        owner = Relation("task", "owner")
         composite = read | owner
 
         # Has permission only
@@ -189,7 +192,7 @@ class TestCompositeRequirements:
         assert composite.evaluate(ctx1) is True
 
         # Has relation only
-        ctx2 = AuthContext(user={"id": "u"}, relations=[(owner, "task-1")])
+        ctx2 = AuthContext(user={"id": "u"}, relations=[RelationTuple(owner, "task-1")])
         assert composite.evaluate(ctx2) is True
 
         # Has neither
@@ -226,7 +229,7 @@ class TestEmptyAndDuplicatePermissions:
 
 class TestPermissionStringEdgeCases:
     def test_single_string_without_separator_raises(self) -> None:
-        with pytest.raises(ValueError, match="must contain"):
+        with pytest.raises(ValueError, match="No separator found"):
             Permission("invalid")
 
     def test_multiple_separators_splits_on_first(self) -> None:
@@ -272,11 +275,11 @@ class TestAuthContextWildcardPermissions:
     def test_global_wildcard_grants_everything(self) -> None:
         ctx = AuthContext(
             user={"id": "u"},
-            permissions=[Permission("*", "placeholder")],  # Won't match as "*.placeholder"
+            permissions=[Permission("*", "placeholder")],  # resource="*" is a global wildcard
         )
-        # "*" as a pattern only works if the permission string is literally "*"
-        # Permission("*", "placeholder") becomes "*:placeholder" which is NOT a global wildcard
-        assert ctx.has_permission(Permission("task", "read")) is False
+        # resource="*" matches everything regardless of action
+        assert ctx.has_permission(Permission("task", "read")) is True
+        assert ctx.has_permission(Permission("admin", "delete")) is True
 
     def test_resource_wildcard_grants_all_actions(self) -> None:
         ctx = AuthContext(

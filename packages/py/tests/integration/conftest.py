@@ -11,7 +11,7 @@ from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from urauth.auth import Auth
-from urauth.authz.primitives import Action, Permission, Relation, Resource, Role
+from urauth.authz.primitives import Action, Permission, Relation, RelationTuple, Resource, Role
 from urauth.backends.memory import MemoryTokenStore
 from urauth.config import AuthConfig
 from urauth.context import AuthContext
@@ -36,8 +36,8 @@ task_write = Permission(task_res, write)
 task_delete = Permission(task_res, delete)
 admin_manage = Permission(admin_res, manage)
 
-owns_task = Relation("owner", task_res)
-member_of = Relation("member", Resource("org"))
+owns_task = Relation(task_res, "owner")
+member_of = Relation(Resource("org"), "member")
 
 viewer_role = Role("viewer", [user_read, task_read])
 editor_role = Role("editor", [user_read, task_read, task_write])
@@ -54,7 +54,7 @@ class IntegrationUser:
     password: str
     is_active: bool = True
     roles: list[str] = field(default_factory=list)
-    relations: list[tuple[Relation, str]] = field(default_factory=list)
+    relations: list[RelationTuple] = field(default_factory=list)
 
 
 USERS: dict[str, IntegrationUser] = {
@@ -63,14 +63,14 @@ USERS: dict[str, IntegrationUser] = {
         email="admin@test.com",
         password="admin-pass",
         roles=["admin"],
-        relations=[(owns_task, "task-1")],
+        relations=[RelationTuple(owns_task, "task-1")],
     ),
     "editor-1": IntegrationUser(
         id="editor-1",
         email="editor@test.com",
         password="editor-pass",
         roles=["editor"],
-        relations=[(member_of, "org-1")],
+        relations=[RelationTuple(member_of, "org-1")],
     ),
     "viewer-1": IntegrationUser(
         id="viewer-1",
@@ -120,11 +120,11 @@ class IntegrationAuth(Auth):
     def get_user_permissions(self, user: Any) -> list[Permission]:
         return []
 
-    def get_user_relations(self, user: Any) -> list[tuple[Relation, str]]:
+    def get_user_relations(self, user: Any) -> list[RelationTuple]:
         return user.relations
 
     def check_relation(self, user: Any, relation: Relation, resource_id: str) -> bool:
-        return any(r == relation and rid == resource_id for r, rid in user.relations)
+        return any(rt.relation == relation and rt.object_id == resource_id for rt in user.relations)
 
 
 # ── Fixtures ────────────────────────────────────────────────────

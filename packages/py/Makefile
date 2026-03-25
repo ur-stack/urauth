@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install format lint lint-fix typecheck check test test-verbose test-cov docs docs-serve example-fastapi build clean
+.PHONY: help install format lint lint-fix typecheck check test test-verbose test-cov fuzz example-fastapi build clean
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -31,11 +31,8 @@ test-verbose: ## Run tests (verbose, parallel)
 test-cov: ## Run tests with coverage (parallel)
 	uv run pytest -n auto --cov=urauth --cov-report=term-missing --cov-report=html
 
-docs: ## Build docs
-	uv run mkdocs build
-
-docs-serve: ## Serve docs locally on :8041
-	uv run mkdocs serve -a localhost:8041
+fuzz: ## Run fuzz tests with extended deadline
+	uv run pytest tests/fuzz/ -n auto --hypothesis-seed=0 -x -v
 
 example-fastapi: ## Run FastAPI example on :8040
 	cd examples/fastapi-example && uv run uvicorn app.main:app --reload --port 8040

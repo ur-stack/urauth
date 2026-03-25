@@ -172,7 +172,7 @@ class TestTokenRefreshMiddleware:
         config = AuthConfig(secret_key=SECRET, access_token_ttl=10)
         svc = TokenService(config)
         transport = _FakeTransport()
-        store = MemoryTokenStore()
+        store = MemoryTokenStore(strict=False)
         lifecycle = TokenLifecycle(config, store)
         app = FastAPI()
         app.add_middleware(
@@ -203,7 +203,7 @@ class TestTokenRefreshMiddleware:
         config = AuthConfig(secret_key=SECRET, access_token_ttl=-1)
         expired_svc = TokenService(config)
         transport = _FakeTransport()
-        store = MemoryTokenStore()
+        store = MemoryTokenStore(strict=False)
         lifecycle = TokenLifecycle(config, store)
         app = FastAPI()
         app.add_middleware(
@@ -225,7 +225,7 @@ class TestTokenRefreshMiddleware:
         config = AuthConfig(secret_key=SECRET, access_token_ttl=10)
         svc = TokenService(config)
         transport = _FakeTransport()
-        store = MemoryTokenStore()
+        store = MemoryTokenStore(strict=False)
         lifecycle = TokenLifecycle(config, store)
         app = FastAPI()
         app.add_middleware(

@@ -9,8 +9,11 @@ import pytest
 
 from urauth.auth import Auth
 from urauth.authz.primitives import Permission, Role
+from urauth.backends.memory import MemoryTokenStore
 from urauth.config import AuthConfig
 from urauth.exceptions import UnauthorizedError
+
+_STORE = MemoryTokenStore(strict=False)
 
 SECRET = "test-secret-key-for-testing-only-32chars"
 
@@ -61,6 +64,7 @@ class TestSyncCallbacks:
     def test_basic_setup(self) -> None:
         auth = Auth(
             config=AuthConfig(secret_key=SECRET),
+            token_store=_STORE,
             get_user=_get_user,
             get_user_by_username=_get_user_by_username_match,
             verify_password=_verify_password_true,
@@ -73,6 +77,7 @@ class TestSyncCallbacks:
     def test_user_not_found(self) -> None:
         auth = Auth(
             config=AuthConfig(secret_key=SECRET),
+            token_store=_STORE,
             get_user=_get_user_none,
             get_user_by_username=_get_user_by_username_none,
             verify_password=_verify_password_false,
@@ -89,6 +94,7 @@ class TestSyncCallbacks:
 
         auth = Auth(
             config=AuthConfig(secret_key=SECRET),
+            token_store=_STORE,
             get_user=_get_user,
             get_user_by_username=_get_user_by_username_none,
             verify_password=_verify_password_false,
@@ -107,6 +113,7 @@ class TestSyncCallbacks:
 
         auth = Auth(
             config=AuthConfig(secret_key=SECRET),
+            token_store=_STORE,
             get_user=_get_user,
             get_user_by_username=_get_user_by_username_none,
             verify_password=_verify_password_false,
@@ -127,6 +134,7 @@ class TestAsyncCallbacks:
 
         auth = Auth(
             config=AuthConfig(secret_key=SECRET),
+            token_store=_STORE,
             get_user=get_user,
             get_user_by_username=_get_user_by_username_match,
             verify_password=_verify_password_true,
@@ -148,6 +156,7 @@ class TestAsyncCallbacks:
 
         auth = Auth(
             config=AuthConfig(secret_key=SECRET),
+            token_store=_STORE,
             get_user=get_user,
             get_user_by_username=get_by_username,
             verify_password=verify,
@@ -159,6 +168,7 @@ class TestAsyncCallbacks:
     async def test_optional_no_token(self) -> None:
         auth = Auth(
             config=AuthConfig(secret_key=SECRET),
+            token_store=_STORE,
             get_user=_get_user,
             get_user_by_username=_get_user_by_username_none,
             verify_password=_verify_password_false,
@@ -204,7 +214,7 @@ class TestCallbackSubclassCoexistence:
             def verify_password(self, user: Any, password: str) -> bool:
                 return False
 
-        auth = MyAuth(config=AuthConfig(secret_key=SECRET))
+        auth = MyAuth(config=AuthConfig(secret_key=SECRET), token_store=_STORE)
         token = auth.token_service.create_token_pair("user-1")
         ctx = auth.build_context_sync(token.access_token)
         assert ctx.user.id == "user-1"

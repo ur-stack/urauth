@@ -9,7 +9,7 @@ Define your entire auth setup in one place::
             Google(client_id="...", client_secret="..."),
             GitHub(client_id="...", client_secret="..."),
         ]),
-        mfa=MFA(methods=["otp", "passkey"]),
+        mfa=[MFAMethod(method="otp"), MFAMethod(method="passkey")],
         password_reset=True,
         account_linking=True,
         identifiers=Identifiers(email=True, phone=True),
@@ -28,7 +28,7 @@ from pydantic import BaseModel
 class JWTStrategy(BaseModel):
     """Stateless JWT auth strategy.
 
-    Args:
+    Attributes:
         refresh: Enable refresh token rotation.
         revocable: Check token blocklist on each request.
         transport: How tokens are sent — ``"bearer"`` header,
@@ -142,7 +142,7 @@ class MagicLinkLogin(BaseModel):
 class OTPLogin(BaseModel):
     """OTP (one-time password) login.
 
-    Args:
+    Attributes:
         code_type: Character set — ``"numeric"`` (0-9),
             ``"alpha"`` (A-Z), or ``"alphanumeric"`` (both).
         digits: Length of the OTP code.
@@ -171,18 +171,18 @@ LoginMethod = PasswordLogin | OAuthLogin | MagicLinkLogin | OTPLogin | PasskeyLo
 # ── MFA ──────────────────────────────────────────────────────────
 
 
-class MFA(BaseModel):
-    """Multi-factor authentication configuration.
+class MFAMethod(BaseModel):
+    """Configuration for a single MFA method.
 
-    Args:
-        methods: Allowed MFA methods (``"otp"``, ``"passkey"``).
-        required: If ``True``, all users must complete MFA.
+    Attributes:
+        method: The MFA method type (``"otp"`` or ``"passkey"``).
+        required: If ``True``, all users must complete this method.
             If ``False``, only enrolled users are prompted.
-        grace_period: Seconds after fresh login before MFA is
+        grace_period: Seconds after fresh login before this method is
             required again.
     """
 
-    methods: list[Literal["otp", "passkey"]] = ["otp"]
+    method: Literal["otp", "passkey"]
     required: bool = False
     grace_period: int = 0
 
@@ -200,7 +200,7 @@ class PasswordReset(BaseModel):
         3. ``POST /password/reset/complete`` — sets new password
            using the ``reset_session`` from step 2.
 
-    Args:
+    Attributes:
         token_ttl: How long the reset token is valid (seconds).
         reset_session_ttl: How long the reset session lasts after
             token confirmation (seconds).
@@ -251,7 +251,7 @@ class Pipeline(BaseModel):
     passkey: bool | PasskeyLogin = False
 
     # MFA — second factor after primary login
-    mfa: MFA | None = None
+    mfa: list[MFAMethod] | None = None
 
     # Account features
     password_reset: bool | PasswordReset = False
@@ -293,4 +293,18 @@ class Pipeline(BaseModel):
 
     @property
     def has_mfa(self) -> bool:
-        return self.mfa is not None
+        return self.mfa is not None and len(self.mfa) > 0
+
+    @property
+    def mfa_methods(self) -> list[str]:
+        """Return list of enabled MFA method names."""
+        if self.mfa is None:
+            return []
+        return [m.method for m in self.mfa]
+
+    @property
+    def mfa_any_required(self) -> bool:
+        """Return True if any MFA method is required for all users."""
+        if self.mfa is None:
+            return False
+        return any(m.required for m in self.mfa)

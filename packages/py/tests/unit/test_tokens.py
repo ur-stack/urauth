@@ -12,7 +12,7 @@ from urauth.types import TokenPair
 
 @pytest.fixture
 def svc() -> TokenService:
-    return TokenService(AuthConfig(secret_key="test-secret"))
+    return TokenService(AuthConfig(secret_key="test-secret", allow_insecure_key=True))
 
 
 class TestCreateAccessToken:
@@ -67,13 +67,13 @@ class TestCreateTokenPair:
 
 class TestValidation:
     def test_expired_token(self) -> None:
-        svc = TokenService(AuthConfig(secret_key="test", access_token_ttl=-1))
+        svc = TokenService(AuthConfig(secret_key="test", access_token_ttl=-1, allow_insecure_key=True))
         token = svc.create_access_token("user-1")
         with pytest.raises(TokenExpiredError):
             svc.validate_access_token(token)
 
     def test_invalid_signature(self, svc: TokenService) -> None:
-        other = TokenService(AuthConfig(secret_key="different-key"))
+        other = TokenService(AuthConfig(secret_key="different-key", allow_insecure_key=True))
         token = other.create_access_token("user-1")
         with pytest.raises(InvalidTokenError):
             svc.validate_access_token(token)
@@ -89,13 +89,13 @@ class TestValidation:
             svc.validate_refresh_token(token)
 
     def test_issuer_validation(self) -> None:
-        svc = TokenService(AuthConfig(secret_key="test", token_issuer="my-app"))
+        svc = TokenService(AuthConfig(secret_key="test", token_issuer="my-app", allow_insecure_key=True))
         token = svc.create_access_token("user-1")
         payload = svc.validate_access_token(token)
         assert payload.sub == "user-1"
 
         # Token from different issuer
-        other = TokenService(AuthConfig(secret_key="test", token_issuer="other-app"))
+        other = TokenService(AuthConfig(secret_key="test", token_issuer="other-app", allow_insecure_key=True))
         token2 = other.create_access_token("user-1")
         with pytest.raises(InvalidTokenError, match="Invalid issuer"):
             svc.validate_access_token(token2)

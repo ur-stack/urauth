@@ -18,6 +18,7 @@ from urauth.context import AuthContext
 from urauth.exceptions import UnauthorizedError
 from urauth.fastapi._guards import PolicyGuard, RelationGuard, RequirementGuard
 from urauth.fastapi.authz.access import AccessControl
+from urauth.fastapi.authz.tenant_guard import TenantGuard
 from urauth.fastapi.exceptions import register_exception_handlers
 from urauth.fastapi.pipeline.resolvers import build_resolver
 from urauth.fastapi.pipeline.routes import PipelineRouterBuilder
@@ -240,6 +241,28 @@ class FastAuth:
         Works as both a decorator and a ``Depends()`` dependency.
         """
         return PolicyGuard(self.context, check)
+
+    # ── Tenant guard ─────────────────────────────────────────────
+
+    def require_tenant(
+        self,
+        *,
+        level: str | None = None,
+        requirement: Requirement | None = None,
+    ) -> TenantGuard:
+        """Guard requiring a tenant context.
+
+        Optionally restricts to a specific hierarchy level and/or
+        an additional authorization requirement.
+
+        Works as both a decorator and a ``Depends()`` dependency::
+
+            @auth.require_tenant(level="organization")
+            async def org_endpoint(ctx: AuthContext = Depends(auth.context)): ...
+        """
+        return TenantGuard(self.context, level=level, requirement=requirement)
+
+    req_tenant = require_tenant  # alias
 
     # ── Checker-based access control ────────────────────────────
 

@@ -14,30 +14,73 @@ user:carol  is  admin  of  org:acme
 
 ## Defining Relations
 
-Create a `Relation` with a relation name and a resource type:
+Create a `Relation` with a resource type and a relation name:
 
 ```python
 from urauth.authz.primitives import Relation
 
-owns_post = Relation("owner", "post")
-member_of_team = Relation("member", "team")
-admin_of_org = Relation("admin", "org")
+owns_post = Relation("post", "owner")
+member_of_team = Relation("team", "member")
+admin_of_org = Relation("org", "admin")
 ```
 
 A `Relation` has two parts:
 
-- **name** -- the type of relationship (e.g., `"owner"`, `"member"`, `"admin"`)
 - **resource** -- the resource type (e.g., `"post"`, `"team"`, `"org"`)
+- **name** -- the type of relationship (e.g., `"owner"`, `"member"`, `"admin"`)
 
-Its string form is `"resource#name"`: `Relation("owner", "post")` equals `"post#owner"`.
+Its string form is `"resource#name"`: `Relation("post", "owner")` produces `"post#owner"`.
+
+You can also create a `Relation` from a single string with an auto-detected separator (any of `@#.:|\/&$`):
+
+```python
+owns_post = Relation("post#owner")
+member_of_team = Relation("team#member")
+```
+
+Equality is semantic -- `Relation("post#owner") == Relation("post", "owner")` is `True`, regardless of separator.
+
+## RelationEnum
+
+For type safety and autocomplete, define your relations as an enum using `RelationEnum`:
+
+```python
+from urauth import RelationEnum
+
+class Rels(RelationEnum):
+    POST_OWNER = "post#owner"
+    POST_EDITOR = ("post", "editor")
+    TEAM_MEMBER = "team#member"
+    TEAM_ADMIN = ("team", "admin")
+    ORG_ADMIN = "org#admin"
+```
+
+Each member's `.value` is a `Relation` object. You can use the single-string form (with any separator) or the two-argument tuple form. Mix and match freely.
+
+## RelationTuple
+
+A `RelationTuple` represents a full Zanzibar-style tuple -- a specific user's relation to a specific resource instance:
+
+```python
+from urauth import RelationTuple
+
+# Parse from string
+t = RelationTuple.parse("doc:readme#owner@user:alice")
+
+# Create from a RelationEnum member
+t = Rels.POST_OWNER.tuple("42", "user:alice")
+str(t)  # "post:42#owner@user:alice"
+```
+
+`RelationTuple` ties together a `Relation`, a resource ID, and a subject. It is the return type of `get_user_relations()` and what `AuthContext.relations` holds.
 
 ## Loading Relations: get_user_relations
 
-Override `get_user_relations(user)` in your `Auth` subclass to return the user's relations. Each relation is a tuple of `(Relation, resource_id)`:
+Override `get_user_relations(user)` in your `Auth` subclass to return the user's relations as a list of `RelationTuple` objects:
 
 ```python
 from urauth.auth import Auth
-from urauth.authz.primitives import Relation
+from urauth.authz.primitives import Relation, RelationTuple
 
 class MyAuth(Auth):
     async def get_user_relations(self, user):
@@ -48,7 +91,7 @@ class MyAuth(Auth):
             {"uid": user.id},
         )
         return [
-            (Relation(row.relation_name, row.resource_type), row.resource_id)
+            RelationTuple(Relation(row.resource_type, row.relation_name), row.resource_id)
             for row in rows
         ]
 ```
@@ -58,9 +101,9 @@ For example, if Alice owns posts 42 and 99 and is a member of team "engineering"
 ```python
 async def get_user_relations(self, user):
     return [
-        (Relation("owner", "post"), "42"),
-        (Relation("owner", "post"), "99"),
-        (Relation("member", "team"), "engineering"),
+        RelationTuple(Relation("post", "owner"), "42"),
+        RelationTuple(Relation("post", "owner"), "99"),
+        RelationTuple(Relation("team", "member"), "engineering"),
     ]
 ```
 
@@ -101,7 +144,7 @@ from starlette.requests import Request
 from urauth.authz.primitives import Relation
 from urauth.fastapi.auth import FastAuth
 
-owns_post = Relation("owner", "post")
+owns_post = Relation("post", "owner")
 
 app = FastAPI()
 
@@ -144,7 +187,7 @@ async def get_post(
     post_id: str,
     ctx=Depends(auth.context),
 ):
-    if ctx.has_relation(Relation("owner", "post"), post_id):
+    if ctx.has_relation(Relation("post", "owner"), post_id):
         return {"post_id": post_id, "can_edit": True}
     return {"post_id": post_id, "can_edit": False}
 ```
@@ -159,7 +202,7 @@ Relations are `Requirement` objects, just like `Permission` and `Role`. They sup
 from urauth.authz.primitives import Permission, Role, Relation
 
 is_admin = Role("admin")
-owns_post = Relation("owner", "post")
+owns_post = Relation("post", "owner")
 can_write = Permission("post", "write")
 
 # Admin OR the owner can delete
@@ -175,16 +218,19 @@ async def update_post(request: Request, post_id: str):
     ...
 ```
 
-!!! note
-    When a `Relation` is used in a composite requirement via `auth.require()` (not `require_relation`), its `evaluate()` method checks if the relation exists for **any** resource ID in the context. For resource-specific checks, use `auth.require_relation()` with `resource_id_from`.
 
+> **`info`** — See source code for full API.
+
+When a `Relation` is used in a composite requirement via `auth.require()` (not `require_relation`), its `evaluate()` method checks if the relation exists for **any** resource ID in the context. For resource-specific checks, use `auth.require_relation()` with `resource_id_from`.
+
+:::
 ## Real-World Examples
 
 ### Document Ownership
 
 ```python
-owns_document = Relation("owner", "document")
-can_view_document = Relation("viewer", "document")
+owns_document = Relation("document", "owner")
+can_view_document = Relation("document", "viewer")
 
 class MyAuth(Auth):
     async def get_user_relations(self, user):
@@ -193,7 +239,7 @@ class MyAuth(Auth):
             {"uid": user.id},
         )
         return [
-            (Relation(row.relation, "document"), row.document_id)
+            RelationTuple(Relation("document", row.relation), row.document_id)
             for row in rows
         ]
 
@@ -211,8 +257,8 @@ async def delete_document(request: Request, doc_id: str):
 ### Team Membership
 
 ```python
-member_of_team = Relation("member", "team")
-admin_of_team = Relation("admin", "team")
+member_of_team = Relation("team", "member")
+admin_of_team = Relation("team", "admin")
 
 @app.get("/teams/{team_id}/members")
 @auth.require_relation(member_of_team, resource_id_from="team_id")
@@ -230,8 +276,8 @@ async def invite_member(request: Request, team_id: str):
 Combine relations with roles for organization-level access:
 
 ```python
-org_admin = Relation("admin", "org")
-org_member = Relation("member", "org")
+org_admin = Relation("org", "admin")
+org_member = Relation("org", "member")
 is_superadmin = Role("superadmin")
 
 # Superadmins can access any org; org admins can access their own
@@ -249,8 +295,11 @@ async def org_dashboard(request: Request, org_id: str):
 
 ## Recap
 
-- `Relation("name", "resource")` defines a typed relation between a user and a resource.
-- Override `get_user_relations(user)` to return `[(Relation, resource_id), ...]` from your database.
+- `Relation("resource", "name")` defines a typed relation between a user and a resource (resource-first argument order).
+- Single-string form works with auto-detected separator: `Relation("post#owner")`.
+- `RelationEnum` provides type-safe relation definitions, analogous to `PermissionEnum`.
+- `RelationTuple` represents a full Zanzibar tuple: `RelationTuple.parse("doc:readme#owner@user:alice")`.
+- Override `get_user_relations(user)` to return `list[RelationTuple]` from your database.
 - Override `check_relation(user, relation, resource_id)` for per-request database lookups instead of pre-loading.
 - `auth.require_relation(relation, resource_id_from="param")` guards endpoints based on path parameter resource IDs.
 - `ctx.has_relation(relation, resource_id)` checks pre-loaded relations inline.

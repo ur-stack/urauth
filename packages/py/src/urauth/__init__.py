@@ -13,10 +13,14 @@ from urauth.authz.checker import PermissionChecker, RoleExpandingChecker, String
 from urauth.authz.permission_enum import PermissionEnum
 
 # Authorization primitives
-from urauth.authz.primitives import AllOf, AnyOf, Permission, Relation, Requirement, Role
+from urauth.authz.primitives import AllOf, AnyOf, Permission, Relation, RelationTuple, Requirement, Role
+from urauth.authz.relation_enum import RelationEnum
 from urauth.authz.roles import RoleRegistry
 from urauth.config import AuthConfig
 from urauth.context import AuthContext
+
+# Events
+from urauth.events import AuthEvent, AuthEventHandler, NullEventHandler
 
 # Exceptions
 from urauth.exceptions import (
@@ -30,13 +34,13 @@ from urauth.exceptions import (
 
 # Pipeline configuration
 from urauth.pipeline import (
-    MFA,
     APIKeyStrategy,
     BasicAuthStrategy,
     FallbackStrategy,
     Identifiers,
     JWTStrategy,
     MagicLinkLogin,
+    MFAMethod,
     OAuthLogin,
     OAuthProvider,
     OTPLogin,
@@ -50,6 +54,10 @@ from urauth.pipeline import (
 # Rate limiting
 from urauth.ratelimit import KeyStrategy, RateLimiter
 
+# Tenant hierarchy
+from urauth.tenant import TenantDefaults, TenantHierarchy, TenantLevel, TenantNode, TenantPath
+from urauth.tenant.defaults import RoleTemplate
+
 # Tokens
 from urauth.tokens.jwt import TokenService
 from urauth.tokens.lifecycle import IssuedTokenPair, IssueRequest, TokenLifecycle
@@ -62,6 +70,10 @@ __all__ = [
     # Primitives
     "AllOf",
     "AnyOf",
+    # Events
+    "AuthEvent",
+    "AuthEventHandler",
+    "NullEventHandler",
     # Core
     "Auth",
     "AuthConfig",
@@ -73,6 +85,8 @@ __all__ = [
     "ForbiddenError",
     "Identifiers",
     "InvalidTokenError",
+    "IssueRequest",
+    "IssuedTokenPair",
     "JWTStrategy",
     # Rate limiting
     "KeyStrategy",
@@ -92,17 +106,24 @@ __all__ = [
     "Pipeline",
     "RateLimiter",
     "Relation",
+    "RelationEnum",
+    "RelationTuple",
     "Requirement",
     "Role",
     "RoleExpandingChecker",
     "RoleRegistry",
+    "RoleTemplate",
     "SessionStrategy",
     "StringChecker",
+    # Tenant hierarchy
+    "TenantDefaults",
+    "TenantHierarchy",
+    "TenantLevel",
+    "TenantNode",
+    "TenantPath",
     "TokenExpiredError",
     # Tokens
     "TokenLifecycle",
-    "IssuedTokenPair",
-    "IssueRequest",
     "TokenPair",
     "TokenPayload",
     "TokenRevokedError",

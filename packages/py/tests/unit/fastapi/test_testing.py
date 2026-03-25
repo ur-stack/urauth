@@ -10,6 +10,7 @@ from httpx import ASGITransport, AsyncClient
 
 from tests.conftest import FakeBackend, FakeUser
 from urauth import Auth, AuthConfig
+from urauth.backends.memory import MemoryTokenStore
 from urauth.context import AuthContext
 from urauth.fastapi import FastAuth
 from urauth.fastapi.exceptions import register_exception_handlers
@@ -44,8 +45,8 @@ class TestCurrentUserDependency:
     async def test_current_user_returns_user(self) -> None:
         alice = FakeUser(id="user-1", email="alice@example.com", roles=["admin"])
         backend = FakeBackend([alice])
-        config = AuthConfig(secret_key="test-key")
-        core = _BackendAuth(backend, config=config)
+        config = AuthConfig(secret_key="test-key", allow_insecure_key=True)
+        core = _BackendAuth(backend, config=config, token_store=MemoryTokenStore(strict=False))
         auth = FastAuth(core)
 
         app = FastAPI()

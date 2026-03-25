@@ -6,16 +6,22 @@ Transport classes handle how tokens are extracted from HTTP requests. All transp
 
 Extracts tokens from the `Authorization: Bearer` header.
 
-::: urauth.fastapi.transport.bearer.BearerTransport
+
+> **`urauth.fastapi.transport.bearer.BearerTransport`** — See source code for full API.
+
 
 ## CookieTransport
 
 Stores and extracts tokens using HTTP cookies.
 
-::: urauth.fastapi.transport.cookie.CookieTransport
+
+> **`urauth.fastapi.transport.cookie.CookieTransport`** — See source code for full API.
+
 
 ## HybridTransport
 
 Tries multiple transports in order, using the first one that returns a token.
 
-::: urauth.fastapi.transport.hybrid.HybridTransport
+
+> **`urauth.fastapi.transport.hybrid.HybridTransport`** — See source code for full API.
+

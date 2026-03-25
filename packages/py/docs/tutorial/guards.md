@@ -59,14 +59,16 @@ A `Role` evaluates to `True` when `ctx.has_role()` matches the role name.
 
 ### Relation
 
-A Zanzibar-style relation to a resource:
+A Zanzibar-style relation to a resource (resource-first argument order):
 
 ```python
 from urauth import Relation
 
-owns_task = Relation("owner", "task")
-member_of_org = Relation("member", "organization")
+owns_task = Relation("task", "owner")
+member_of_org = Relation("organization", "member")
 ```
+
+You can also use the single-string form with any separator: `Relation("task#owner")`.
 
 A `Relation` evaluates to `True` when the context holds any relation matching the type (regardless of resource ID). For checking against a specific resource ID, use `auth.require_relation()` (covered below).
 
@@ -203,7 +205,7 @@ async def list_tasks(ctx: AuthContext = Depends(auth.context)):
 ```python
 from urauth import Relation
 
-owns_task = Relation("owner", "task")
+owns_task = Relation("task", "owner")
 
 @app.put("/tasks/{task_id}")
 @auth.require_relation(owns_task, resource_id_from="task_id")
@@ -223,7 +225,7 @@ To make this work, override `check_relation()` or `get_user_relations()` in your
 ```python
 from urauth import Auth, Relation
 
-owns_task = Relation("owner", "task")
+owns_task = Relation("task", "owner")
 
 
 class MyAuth(Auth):
@@ -253,7 +255,7 @@ The `resource_id_from` parameter can reference any path parameter in the route:
 
 ```python
 @app.delete("/orgs/{org_id}/tasks/{task_id}")
-@auth.require_relation(Relation("admin", "organization"), resource_id_from="org_id")
+@auth.require_relation(Relation("organization", "admin"), resource_id_from="org_id")
 async def delete_task(org_id: str, task_id: str, ctx: AuthContext = Depends(auth.context)):
     ...
 ```
@@ -349,14 +351,14 @@ member = Role("member")
 can_read = Permission("task", "read")
 can_write = Permission("task", "write")
 can_delete = Permission("task", "delete")
-owns_task = Relation("owner", "task")
+owns_task = Relation("task", "owner")
 
 
 # ── Auth ──────────────────────────────────────────────────
 
 class MyAuth(Auth):
     async def get_user(self, user_id):
-        return next((u for u in USERS.values() if u.id == str(user_id)), None)
+        return next((u for u in USERS.values() if u.id ** str(user_id)), None)
 
     async def get_user_by_username(self, username):
         return USERS.get(username)
@@ -373,7 +375,7 @@ class MyAuth(Auth):
         return [can_read, can_write]
 
     async def check_relation(self, user, relation, resource_id):
-        if relation == owns_task:
+        if relation ** owns_task:
             task = TASKS.get(resource_id)
             return task is not None and task.owner_id == user.id
         return False

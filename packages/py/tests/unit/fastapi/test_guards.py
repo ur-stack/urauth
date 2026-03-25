@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from urauth.auth import Auth
-from urauth.authz.primitives import Action, Permission, Relation, Resource, Role
+from urauth.authz.primitives import Action, Permission, Relation, RelationTuple, Resource, Role
 from urauth.backends.memory import MemoryTokenStore
 from urauth.config import AuthConfig
 from urauth.context import AuthContext
@@ -25,7 +25,7 @@ user_res = Resource("user")
 post_res = Resource("post")
 can_read = Permission(user_res, read)
 can_write = Permission(post_res, write)
-owns_post = Relation("owner", post_res)
+owns_post = Relation(post_res, "owner")
 admin_role = Role("admin", [can_read, can_write])
 viewer_role = Role("viewer", [can_read])
 
@@ -54,8 +54,8 @@ class _GuardTestAuth(Auth):
     def get_user_roles(self, user: Any) -> list[Role]:
         return [admin_role] if "admin" in user.roles else [viewer_role]
 
-    def get_user_relations(self, user: Any) -> list[tuple[Relation, str]]:
-        return [(owns_post, "42")]
+    def get_user_relations(self, user: Any) -> list[RelationTuple]:
+        return [RelationTuple(owns_post, "42")]
 
     def check_relation(self, user: Any, relation: Relation, resource_id: str) -> bool:
         return relation == owns_post and resource_id == "42"
@@ -74,7 +74,7 @@ def viewer_user() -> FakeUser:
 @pytest.fixture
 def auth_setup(admin_user: FakeUser, viewer_user: FakeUser) -> tuple[FastAuth, Auth]:
     config = AuthConfig(secret_key=SECRET)
-    store = MemoryTokenStore()
+    store = MemoryTokenStore(strict=False)
     users = {admin_user.id: admin_user, viewer_user.id: viewer_user}
     core = _GuardTestAuth(users, config=config, token_store=store)
     fast = FastAuth(core)

@@ -20,7 +20,7 @@ class _FakePayload:  # pyright: ignore[reportUnusedClass]
 
 
 def _make_app(config: AuthConfig | None = None) -> tuple[FastAPI, TenantResolver]:
-    config = config or AuthConfig(secret_key="test")
+    config = config or AuthConfig(secret_key="test", allow_insecure_key=True)
     resolver = TenantResolver(config)
 
     app = FastAPI()
@@ -46,7 +46,7 @@ class TestTenantFromHeader:
             assert resp.json()["tenant_id"] == "org-1"
 
     async def test_custom_header_name(self) -> None:
-        config = AuthConfig(secret_key="test", tenant_header="X-Org-ID")
+        config = AuthConfig(secret_key="test", allow_insecure_key=True, tenant_header="X-Org-ID")
         app, _ = _make_app(config)
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/tenant", headers={"X-Org-ID": "org-2"})

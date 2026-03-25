@@ -22,9 +22,9 @@ from urauth.context import AuthContext
 from urauth.exceptions import ForbiddenError, UnauthorizedError
 from urauth.fastapi.transport.base import Transport
 from urauth.pipeline import (
-    MFA,
     JWTStrategy,
     MagicLinkLogin,
+    MFAMethod,
     OAuthLogin,
     OTPLogin,
     PasskeyLogin,
@@ -127,7 +127,7 @@ async def _issue_credentials(
     request: Request,
     response: Response,
     *,
-    mfa: MFA | None = None,
+    mfa: list[MFAMethod] | None = None,
 ) -> dict[str, Any]:
     """Issue credentials after successful authentication.
 
@@ -135,13 +135,14 @@ async def _issue_credentials(
     ``mfa_token`` instead of full credentials.
     """
     # Check MFA before issuing full credentials
-    if mfa is not None:
-        needs_mfa = mfa.required or await maybe_await(auth.is_mfa_enrolled(user))
+    if mfa:
+        needs_mfa = any(m.required for m in mfa) or await maybe_await(auth.is_mfa_enrolled(user))
         if needs_mfa:
             mfa_token = auth.lifecycle.jwt.create_access_token(
                 str(user.id),
-                extra_claims={"type": "mfa", "mfa_pending": True},
+                extra_claims={"mfa_pending": True},
                 fresh=True,
+                _internal_type="mfa",
             )
             methods = await maybe_await(auth.get_mfa_methods(user))
             return {"mfa_token": mfa_token, "mfa_required": True, "methods": methods}
@@ -486,7 +487,7 @@ class PipelineRouterBuilder:
 
     # ── MFA routes ───────────────────────────────────────────────
 
-    def _add_mfa_routes(self, router: APIRouter, mfa_config: MFA) -> None:
+    def _add_mfa_routes(self, router: APIRouter, mfa_config: list[MFAMethod]) -> None:
         auth = self._auth
         strategy = self._pipeline.strategy
         transport = self._transport
@@ -495,7 +496,8 @@ class PipelineRouterBuilder:
         async def mfa_challenge(request: Request) -> dict[str, Any]:
             """Request an MFA challenge (e.g. send OTP, get passkey challenge)."""
             # mfa_token in body or header
-            return {"detail": "MFA challenge issued", "methods": mfa_config.methods}
+            available = [m.method for m in mfa_config]
+            return {"detail": "MFA challenge issued", "methods": available}
 
         @router.post("/mfa/verify")
         async def mfa_verify(body: _MFAVerifyRequest, request: Request, response: Response) -> dict[str, Any]:
@@ -530,7 +532,8 @@ class PipelineRouterBuilder:
         ) -> dict[str, Any]:
             """Enroll a new MFA method (returns setup data like TOTP secret/QR)."""
             ctx = await self._resolve_context(request)
-            if body.method not in mfa_config.methods:
+            available = [m.method for m in mfa_config]
+            if body.method not in available:
                 raise ForbiddenError(f"MFA method '{body.method}' is not enabled")
             return await maybe_await(auth.enroll_mfa(ctx.user, body.method))
 
@@ -542,7 +545,8 @@ class PipelineRouterBuilder:
             """List enrolled MFA methods for the current user."""
             ctx = await self._resolve_context(request)
             enrolled = await maybe_await(auth.get_mfa_methods(ctx.user))
-            return {"enrolled": enrolled, "available": mfa_config.methods}
+            available = [m.method for m in mfa_config]
+            return {"enrolled": enrolled, "available": available}
 
     # ── Password reset (3-step) ──────────────────────────────────
 
@@ -576,8 +580,8 @@ class PipelineRouterBuilder:
             # Issue a short-lived reset session token
             reset_session = auth.lifecycle.jwt.create_access_token(
                 str(user.id),
-                extra_claims={"type": "reset_session"},
                 fresh=True,
+                _internal_type="reset_session",
             )
             return {"reset_session": reset_session}
 

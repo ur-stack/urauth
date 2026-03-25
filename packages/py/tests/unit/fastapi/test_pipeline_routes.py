@@ -15,11 +15,11 @@ from urauth.config import AuthConfig
 from urauth.context import AuthContext
 from urauth.fastapi.auth import FastAuth
 from urauth.pipeline import (
-    MFA,
     BasicAuthStrategy,
     Identifiers,
     JWTStrategy,
     MagicLinkLogin,
+    MFAMethod,
     OTPLogin,
     Pipeline,
     SessionStrategy,
@@ -110,7 +110,7 @@ class _TestAuth(Auth):
 
 
 def _make_app(pipeline: Pipeline) -> FastAPI:
-    config = AuthConfig(secret_key="test-secret-key-for-pipeline")
+    config = AuthConfig(secret_key="test-secret-key-for-pipeline", allow_insecure_key=True)
     core = _TestAuth(config=config, token_store=MemoryTokenStore(), pipeline=pipeline)
     auth = FastAuth(core)
     app = FastAPI()
@@ -318,7 +318,7 @@ class TestSessionPipeline:
     def app(self):
         from urauth.backends.memory import MemorySessionStore
 
-        config = AuthConfig(secret_key="test-secret-key-session")
+        config = AuthConfig(secret_key="test-secret-key-session", allow_insecure_key=True)
         core = _TestAuth(
             config=config,
             token_store=MemoryTokenStore(),
@@ -353,7 +353,7 @@ class TestSessionPipeline:
 class TestBasicAuthPipeline:
     @pytest.fixture
     def app(self):
-        config = AuthConfig(secret_key="test-secret-key-basic")
+        config = AuthConfig(secret_key="test-secret-key-basic", allow_insecure_key=True)
         core = _TestAuth(
             config=config,
             token_store=MemoryTokenStore(),
@@ -438,7 +438,7 @@ class TestRouteGeneration:
         assert "/auth/password/reset/complete" in paths
 
     def test_mfa_routes(self):
-        app = _make_app(Pipeline(password=True, mfa=MFA()))
+        app = _make_app(Pipeline(password=True, mfa=[MFAMethod(method="otp")]))
         paths = {r.path for r in app.routes if isinstance(r, APIRoute)}
         assert "/auth/mfa/challenge" in paths
         assert "/auth/mfa/verify" in paths
@@ -468,7 +468,7 @@ class TestRouteGeneration:
         assert "/auth/login" not in paths
 
     def test_auto_router_without_pipeline_raises(self):
-        config = AuthConfig(secret_key="test")
+        config = AuthConfig(secret_key="test", allow_insecure_key=True)
         core = _TestAuth(config=config)
         auth = FastAuth(core)
         with pytest.raises(RuntimeError, match=r"auto_router.*requires.*Pipeline"):

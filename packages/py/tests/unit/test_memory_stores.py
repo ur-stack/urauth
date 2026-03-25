@@ -14,15 +14,20 @@ class TestMemoryTokenStore:
     def store(self) -> MemoryTokenStore:
         return MemoryTokenStore()
 
-    async def test_unknown_jti_is_not_revoked(self, store: MemoryTokenStore) -> None:
-        """Tokens not tracked are considered valid (not revoked)."""
+    async def test_unknown_jti_is_revoked_by_default(self, store: MemoryTokenStore) -> None:
+        """Default strict=True: unknown JTIs are treated as revoked (fail-closed)."""
+        assert await store.is_revoked("nonexistent-jti") is True
+
+    async def test_unknown_jti_not_revoked_when_lenient(self) -> None:
+        """strict=False: unknown JTIs are treated as not revoked (fail-open)."""
+        store = MemoryTokenStore(strict=False)
         assert await store.is_revoked("nonexistent-jti") is False
 
     async def test_revoke_unknown_jti_is_noop(self, store: MemoryTokenStore) -> None:
         """Revoking an unknown JTI should not raise."""
         await store.revoke("nonexistent-jti", time.time() + 3600)
-        # Should still not appear as revoked since it was never tracked
-        assert await store.is_revoked("nonexistent-jti") is False
+        # Still revoked since it was never tracked and default is strict=True
+        assert await store.is_revoked("nonexistent-jti") is True
 
     async def test_add_and_revoke(self, store: MemoryTokenStore) -> None:
         await store.add_token(jti="t1", user_id="u1", token_type="access", expires_at=time.time() + 3600)

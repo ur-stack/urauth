@@ -32,6 +32,7 @@ def create_test_token(
         algorithm=algorithm,
         access_token_ttl=access_ttl,
         refresh_token_ttl=refresh_ttl,
+        allow_insecure_key=True,
     )
     svc = TokenService(config)
     return svc.create_token_pair(

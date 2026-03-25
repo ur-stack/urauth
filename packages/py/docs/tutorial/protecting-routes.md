@@ -16,9 +16,10 @@ async def me(user=Depends(auth.current_user)):
 
 If no valid token is provided, the endpoint returns `401 Unauthorized`. The `user` object is whatever your `Auth.get_user()` method returns.
 
-!!! warning "`current_user` is a property"
-    Write `Depends(auth.current_user)` -- no parentheses. It is a property on `FastAuth` that returns a dependency function, not a method you call.
+::: warning `current_user` is a property
+Write `Depends(auth.current_user)` -- no parentheses. It is a property on `FastAuth` that returns a dependency function, not a method you call.
 
+:::
 ## Full Context
 
 When you need more than just the user object -- roles, permissions, relations, token claims -- use `auth.context`:
@@ -43,7 +44,7 @@ async def me_full(ctx: AuthContext = Depends(auth.context)):
 | `user` | `Any` | The user object from `Auth.get_user()` |
 | `roles` | `list[Role]` | User's roles (from `Auth.get_user_roles()`) |
 | `permissions` | `list[Permission]` | All permissions (direct + role-derived) |
-| `relations` | `list[tuple[Relation, str]]` | Zanzibar-style relations |
+| `relations` | `list[RelationTuple]` | Zanzibar-style relations |
 | `token` | `TokenPayload \| None` | Decoded JWT claims |
 | `request` | `Request \| None` | The originating request |
 
@@ -64,9 +65,12 @@ async def feed(ctx: AuthContext = Depends(auth.context)):
 
 When `@auth.optional` is applied, `auth.context` returns an anonymous `AuthContext` instead of raising `401` when no token is provided. The anonymous context has `user=None` and `is_authenticated()` returns `False`.
 
-!!! note
-    `@auth.optional` is a property that returns a decorator. Apply it directly to the endpoint function -- it marks the endpoint so `auth.context` knows to allow unauthenticated requests.
 
+> **`info`** — See source code for full API.
+
+`@auth.optional` is a property that returns a decorator. Apply it directly to the endpoint function -- it marks the endpoint so `auth.context` knows to allow unauthenticated requests.
+
+:::
 ## AuthContext Introspection
 
 `AuthContext` provides several methods for checking the user's identity without reaching into the internals:
@@ -98,7 +102,7 @@ async def list_tasks(ctx: AuthContext = Depends(auth.context)):
     }
 ```
 
-`has_permission()` supports wildcards. If the user has `"*"` they match everything. If they have `"task:*"` they match any action on the `task` resource.
+`has_permission()` uses separator-agnostic semantic matching. If the user has `Permission("*")` they match everything. If they have `"task:*"` they match any action on the `task` resource. Permissions defined with any separator (`"task:read"`, `"task.read"`, etc.) are compared by their `(resource, action)` pair.
 
 ### Check roles
 
@@ -121,7 +125,7 @@ async def dashboard(ctx: AuthContext = Depends(auth.context)):
 ```python
 from urauth import Relation
 
-owns_task = Relation("owner", "task")
+owns_task = Relation("task", "owner")
 
 @app.get("/tasks/{task_id}")
 async def get_task(task_id: str, ctx: AuthContext = Depends(auth.context)):

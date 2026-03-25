@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from urauth.authz.primitives import Action, Permission, Relation, Resource, Role
+from urauth.authz.primitives import Action, Permission, Relation, RelationTuple, Resource, Role
 from urauth.context import AuthContext
 
 # ── Fixtures ────────────────────────────────────────────────────
@@ -23,8 +23,8 @@ can_write_posts = Permission(post_res, write)
 can_delete_posts = Permission(post_res, delete)
 can_invite = Permission(org_res, invite)
 
-owns_post = Relation("owner", post_res)
-member_of = Relation("member", org_res)
+owns_post = Relation(post_res, "owner")
+member_of = Relation(org_res, "member")
 
 viewer = Role("viewer", [can_read_users])
 editor = Role("editor", [can_read_users, can_write_posts])
@@ -47,7 +47,7 @@ class TestAuthContext:
             user=FakeUser("1", "alice@test.com"),
             roles=[admin, editor],
             permissions=admin.permissions + editor.permissions,
-            relations=[(owns_post, "42"), (member_of, "acme")],
+            relations=[RelationTuple(owns_post, "42"), RelationTuple(member_of, "acme")],
         )
 
     def test_is_authenticated(self, ctx: AuthContext) -> None:

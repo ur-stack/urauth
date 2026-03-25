@@ -33,9 +33,12 @@ class TokenService:
         ttl: int,
         jti: str | None = None,
     ) -> dict[str, Any]:
+        uid = str(user_id)
+        if not uid or not uid.strip():
+            raise ValueError("user_id must be a non-empty string")
         now = time.time()
         claims: dict[str, Any] = {
-            "sub": str(user_id),
+            "sub": uid,
             "jti": jti or uuid.uuid4().hex,
             "iat": now,
             "exp": now + ttl,
@@ -54,20 +57,29 @@ class TokenService:
         scopes: list[str] | None = None,
         roles: list[str] | None = None,
         tenant_id: str | None = None,
+        tenant_path: dict[str, str] | None = None,
         fresh: bool = False,
         extra_claims: dict[str, Any] | None = None,
+        _internal_type: str | None = None,
     ) -> str:
-        claims = self._base_claims(user_id, "access", self._config.access_token_ttl)
+        token_type = _internal_type or "access"
+        claims = self._base_claims(user_id, token_type, self._config.access_token_ttl)
         if scopes:
             claims["scopes"] = scopes
         if roles:
             claims["roles"] = roles
-        if tenant_id:
+        if tenant_path:
+            claims["tenant_path"] = tenant_path
+            # Also set tenant_id to leaf value for backward compat
+            leaf_id = list(tenant_path.values())[-1] if tenant_path else None
+            if leaf_id:
+                claims["tenant_id"] = leaf_id
+        elif tenant_id:
             claims["tenant_id"] = tenant_id
         if fresh:
             claims["fresh"] = True
         if extra_claims:
-            reserved = {"sub", "jti", "iat", "exp", "iss", "aud"}
+            reserved = {"sub", "jti", "iat", "exp", "iss", "aud", "type"}
             claims.update({k: v for k, v in extra_claims.items() if k not in reserved})
 
         return jwt.encode(claims, self._key, algorithm=self._config.algorithm)
@@ -90,6 +102,7 @@ class TokenService:
         scopes: list[str] | None = None,
         roles: list[str] | None = None,
         tenant_id: str | None = None,
+        tenant_path: dict[str, str] | None = None,
         fresh: bool = False,
         extra_claims: dict[str, Any] | None = None,
         family_id: str | None = None,
@@ -99,6 +112,7 @@ class TokenService:
             scopes=scopes,
             roles=roles,
             tenant_id=tenant_id,
+            tenant_path=tenant_path,
             fresh=fresh,
             extra_claims=extra_claims,
         )
@@ -146,6 +160,7 @@ class TokenService:
             scopes=claims.get("scopes", []),
             roles=claims.get("roles", []),
             tenant_id=claims.get("tenant_id"),
+            tenant_path=claims.get("tenant_path"),
             fresh=claims.get("fresh", False),
             extra={
                 k: v
@@ -160,6 +175,7 @@ class TokenService:
                     "scopes",
                     "roles",
                     "tenant_id",
+                    "tenant_path",
                     "fresh",
                     "iss",
                     "aud",

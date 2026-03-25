@@ -279,4 +279,4 @@ app.include_router(auth.auto_router())
 - Enable `account_linking=True` and override `link_oauth`, `unlink_oauth`, `get_linked_accounts` to let users connect multiple providers.
 - Six providers are pre-configured (Google, GitHub, Microsoft, Apple, Discord, GitLab); use `OAuthProvider` for custom ones.
 
-**Next:** [RBAC & Permissions](rbac-permissions.md)
+**Next:** [Access Control](rbac-permissions.md)

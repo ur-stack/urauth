@@ -64,9 +64,9 @@ class TestPermissionPrimitives:
 
     def test_permission_hash(self) -> None:
         p = Permission("user", "read")
-        assert hash(p) == hash("user:read")
+        assert hash(p) == hash(Permission("user:read"))
         # Can be used in sets
-        s = {p, "user:read"}
+        s = {p, Permission("user:read")}
         assert len(s) == 1
 
     def test_permission_ne(self) -> None:
@@ -130,8 +130,8 @@ class TestPermissionEnum:
         class P(PermissionEnum):
             TASK_READ = ("task", "read")
 
-        assert hash(P.TASK_READ) == hash("task:read")
-        s = {P.TASK_READ, "task:read"}
+        assert hash(P.TASK_READ) == hash(Permission("task:read"))
+        s = {P.TASK_READ, Permission("task:read")}
         assert len(s) == 1
 
     def test_enum_members_are_distinct(self) -> None:
@@ -157,19 +157,11 @@ class TestStringChecker:
         assert await checker.has_permission(ctx, "post", "delete") is False
 
     async def test_wildcard(self, checker: StringChecker) -> None:
-        class WildcardPerm(Permission):
-            def __str__(self) -> str:
-                return "*"
-
-        ctx = _ctx(permissions=[WildcardPerm("_", "_")])
+        ctx = _ctx(permissions=[Permission("*")])
         assert await checker.has_permission(ctx, "anything", "goes") is True
 
     async def test_resource_wildcard(self, checker: StringChecker) -> None:
-        class ResourceWild(Permission):
-            def __str__(self) -> str:
-                return "post:*"
-
-        ctx = _ctx(permissions=[ResourceWild("post", "*")])
+        ctx = _ctx(permissions=[Permission("post", "*")])
         assert await checker.has_permission(ctx, "post", "read") is True
         assert await checker.has_permission(ctx, "post", "delete") is True
         assert await checker.has_permission(ctx, "user", "read") is False
@@ -178,12 +170,11 @@ class TestStringChecker:
         ctx = _ctx(permissions=[])
         assert await checker.has_permission(ctx, "post", "read") is False
 
-    async def test_custom_separator(self) -> None:
-        checker = StringChecker(separator=".")
+    async def test_semantic_match_across_separators(self) -> None:
+        checker = StringChecker()
         ctx = _ctx(permissions=[Permission("post", "read")])
-        # Permission str() is "post:read" but checker uses "." separator
-        # So "post.read" != "post:read" — this tests separator mismatch
-        assert await checker.has_permission(ctx, "post", "read") is False
+        # Semantic matching: "post:read" matches "post.read" regardless of separator
+        assert await checker.has_permission(ctx, "post", "read") is True
 
     async def test_scoped_permissions(self, checker: StringChecker) -> None:
         ctx = _ctx(
@@ -206,9 +197,9 @@ class TestRoleExpandingChecker:
     def checker(self) -> RoleExpandingChecker:
         return RoleExpandingChecker(
             role_permissions={
-                "admin": {"*"},
-                "editor": {"post:read", "post:write"},
-                "viewer": {"post:read"},
+                "admin": {Permission("*")},
+                "editor": {Permission("post:read"), Permission("post:write")},
+                "viewer": {Permission("post:read")},
             },
             hierarchy={"admin": ["editor"], "editor": ["viewer"]},
         )
@@ -235,9 +226,9 @@ class TestRoleExpandingChecker:
     async def test_deep_hierarchy(self) -> None:
         checker = RoleExpandingChecker(
             role_permissions={
-                "superadmin": {"nuke:launch"},
-                "admin": {"user:delete"},
-                "viewer": {"post:read"},
+                "superadmin": {Permission("nuke:launch")},
+                "admin": {Permission("user:delete")},
+                "viewer": {Permission("post:read")},
             },
             hierarchy={"superadmin": ["admin"], "admin": ["viewer"]},
         )
@@ -260,7 +251,7 @@ class TestRoleExpandingChecker:
 
     async def test_resource_wildcard(self) -> None:
         checker = RoleExpandingChecker(
-            role_permissions={"admin": {"post:*"}},
+            role_permissions={"admin": {Permission("post:*")}},
         )
         ctx = _ctx(roles=[Role("admin")])
         assert await checker.has_permission(ctx, "post", "read") is True
@@ -268,10 +259,10 @@ class TestRoleExpandingChecker:
         assert await checker.has_permission(ctx, "user", "read") is False
 
     async def test_accepts_permission_objects(self) -> None:
-        """RoleExpandingChecker normalizes Permission objects to strings."""
+        """RoleExpandingChecker stores Permission objects directly."""
         checker = RoleExpandingChecker(
             role_permissions={
-                "editor": {str(Permission("task", "read")), str(Permission("task", "write"))},
+                "editor": {Permission("task", "read"), Permission("task", "write")},
             },
         )
         ctx = _ctx(roles=[Role("editor")])
@@ -289,8 +280,8 @@ class TestRoleRegistry:
         reg.role("viewer", permissions=["task:read"])
 
         checker = reg.build_checker()
-        assert checker._role_permissions  # pyright: ignore[reportPrivateUsage]["admin"] == {"*"}
-        assert checker._role_permissions  # pyright: ignore[reportPrivateUsage]["viewer"] == {"task:read"}
+        assert checker._role_permissions["admin"] == {Permission("*")}  # pyright: ignore[reportPrivateUsage]
+        assert checker._role_permissions["viewer"] == {Permission("task:read")}  # pyright: ignore[reportPrivateUsage]
 
     def test_static_hierarchy(self) -> None:
         reg = RoleRegistry()
@@ -313,7 +304,7 @@ class TestRoleRegistry:
         combined.include(r2)
 
         checker = combined.build_checker()
-        assert checker._role_permissions  # pyright: ignore[reportPrivateUsage]["editor"] == {"task:read", "task:write"}
+        assert checker._role_permissions["editor"] == {Permission("task:read"), Permission("task:write")}  # pyright: ignore[reportPrivateUsage]
 
     def test_include_merges_hierarchy(self) -> None:
         r1 = RoleRegistry()
@@ -340,8 +331,8 @@ class TestRoleRegistry:
         reg.role("editor", permissions=[P.TASK_READ, P.TASK_WRITE])
 
         checker = reg.build_checker()
-        assert "task:read" in checker._role_permissions["editor"]  # pyright: ignore[reportPrivateUsage]
-        assert "task:write" in checker._role_permissions["editor"]  # pyright: ignore[reportPrivateUsage]
+        assert Permission("task:read") in checker._role_permissions["editor"]  # pyright: ignore[reportPrivateUsage]
+        assert Permission("task:write") in checker._role_permissions["editor"]  # pyright: ignore[reportPrivateUsage]
 
     async def test_static_wins_over_loaded(self) -> None:
         class FakeLoader:
@@ -357,7 +348,7 @@ class TestRoleRegistry:
         await reg.load()
 
         checker = reg.build_checker()
-        assert checker._role_permissions  # pyright: ignore[reportPrivateUsage]["admin"] == {"*"}
+        assert checker._role_permissions["admin"] == {Permission("*")}  # pyright: ignore[reportPrivateUsage]
 
     async def test_loaded_roles_available(self) -> None:
         class FakeLoader:
@@ -372,7 +363,8 @@ class TestRoleRegistry:
         await reg.load()
 
         checker = reg.build_checker()
-        assert checker._role_permissions  # pyright: ignore[reportPrivateUsage]["custom_role"] == {"report:read", "report:write"}
+        assert Permission("report:read") in checker._role_permissions["custom_role"]  # pyright: ignore[reportPrivateUsage]
+        assert Permission("report:write") in checker._role_permissions["custom_role"]  # pyright: ignore[reportPrivateUsage]
 
 
 # ── MemoryRoleCache ──────────────────────────────────────────────

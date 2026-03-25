@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from urauth.authz.primitives import Permission, Relation, Requirement, Role, match_permission
+from urauth.authz.primitives import Permission, Relation, RelationTuple, Requirement, Role, match_permission
+from urauth.tenant.hierarchy import TenantPath
 from urauth.types import TokenPayload
 
 
@@ -20,10 +21,11 @@ class AuthContext:
     user: Any
     roles: list[Role] = field(default_factory=list)
     permissions: list[Permission] = field(default_factory=list)
-    relations: list[tuple[Relation, str]] = field(default_factory=list)
+    relations: list[RelationTuple] = field(default_factory=list)
     scopes: dict[str, list[Permission]] = field(default_factory=dict)
     token: TokenPayload | None = None
     request: Any = None
+    tenant: TenantPath | None = None
     _authenticated: bool = True
 
     @staticmethod
@@ -39,9 +41,12 @@ class AuthContext:
         return self._authenticated and self.user is not None
 
     def has_permission(self, permission: Permission | str) -> bool:
-        """Check if the context holds a permission (supports wildcards)."""
-        target = str(permission)
-        return any(match_permission(str(p), target) for p in self.permissions)
+        """Check if the context holds a permission (supports wildcards).
+
+        Comparison is semantic — separator-agnostic.
+        """
+        target = permission if isinstance(permission, Permission) else Permission(str(permission))
+        return any(match_permission(p, target) for p in self.permissions)
 
     def has_role(self, role: Role | str) -> bool:
         """Check if the context holds a specific role."""
@@ -54,7 +59,7 @@ class AuthContext:
 
     def has_relation(self, relation: Relation, resource_id: str) -> bool:
         """Check if the context holds a specific Zanzibar relation to a resource."""
-        return any(r == relation and rid == resource_id for r, rid in self.relations)
+        return any(rt.relation == relation and rt.object_id == resource_id for rt in self.relations)
 
     def satisfies(self, requirement: Requirement) -> bool:
         """Evaluate a (possibly composite) requirement against this context.
@@ -64,6 +69,27 @@ class AuthContext:
             ctx.satisfies(can_read & member_of | admin)
         """
         return requirement.evaluate(self)
+
+    @property
+    def tenant_id(self) -> str | None:
+        """The leaf tenant ID (backward compat with flat tenant_id)."""
+        if self.tenant is not None:
+            return self.tenant.leaf_id
+        if self.token is not None:
+            return self.token.tenant_id
+        return None
+
+    def in_tenant(self, tenant_id: str) -> bool:
+        """Check if the current context is within a specific tenant (at any level)."""
+        if self.tenant is None:
+            return False
+        return self.tenant.is_descendant_of(tenant_id)
+
+    def at_level(self, level: str) -> str | None:
+        """Get the tenant ID at a specific hierarchy level."""
+        if self.tenant is None:
+            return None
+        return self.tenant.id_at(level)
 
     @property
     def path_params(self) -> dict[str, str]:

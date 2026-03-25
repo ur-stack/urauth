@@ -127,10 +127,9 @@ class TestExtraClaimsRoundTrip:
         assert "scopes" not in payload.extra
         assert "roles" not in payload.extra
 
-    def test_empty_string_user_id(self, svc: TokenService) -> None:
-        token = svc.create_access_token("")
-        payload = svc.validate_access_token(token)
-        assert payload.sub == ""
+    def test_empty_string_user_id_rejected(self, svc: TokenService) -> None:
+        with pytest.raises(ValueError, match="user_id must be a non-empty string"):
+            svc.create_access_token("")
 
 
 class TestTokenPairCreation:
@@ -166,9 +165,15 @@ class TestExtraClaimsInjection:
         # exp should be ~now + 900 (default TTL), not the injected value
         assert claims["exp"] < time.time() + 1000
 
-    def test_extra_claims_can_override_type_for_special_tokens(self, svc: TokenService) -> None:
-        """type IS allowed in extra_claims — the library uses it for MFA/reset tokens."""
+    def test_extra_claims_cannot_override_type(self, svc: TokenService) -> None:
+        """type is now a reserved claim — extra_claims cannot override it."""
         token = svc.create_access_token("user-1", extra_claims={"type": "reset_session"})
+        claims = svc.decode_token(token)
+        assert claims["type"] == "access"
+
+    def test_internal_type_parameter_works(self, svc: TokenService) -> None:
+        """_internal_type allows internal code to create special token types."""
+        token = svc.create_access_token("user-1", _internal_type="reset_session")
         claims = svc.decode_token(token)
         assert claims["type"] == "reset_session"
 

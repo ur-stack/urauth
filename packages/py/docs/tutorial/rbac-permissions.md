@@ -1,4 +1,4 @@
-# RBAC & Permissions
+# Access Control
 
 Role-Based Access Control (RBAC) lets you define roles with fine-grained permissions and inheritance. urauth uses a `RoleRegistry` to declare roles statically or load them from a database, and a checker-based system to evaluate permissions at runtime.
 
@@ -37,6 +37,20 @@ class Perms(PermissionEnum):
     USER_READ = ("user", "read")
     USER_WRITE = ("user", "write")
 ```
+
+The permission format is flexible -- you can use any separator from `@#.:|\/&$`, and they are all semantically equivalent:
+
+```python
+class Perms(PermissionEnum):
+    TASK_READ = ("task", "read")       # two-arg tuple
+    TASK_WRITE = "task:write"          # colon separator
+    TASK_DELETE = "task.delete"        # dot separator
+    USER_READ = "user|read"            # pipe separator
+```
+
+All of these produce `Permission` objects that compare equal when the resource and action match: `Permission("task:read") == Permission("task.read")` is `True`.
+
+If you need a custom parsing strategy, set the `__parser__` class attribute on your `PermissionEnum` subclass.
 
 Each member's `.value` is a `Permission` object. Use them in role definitions:
 
@@ -129,9 +143,12 @@ async def delete_task(task_id: str):
     return {"deleted": task_id}
 ```
 
-!!! note
-    When using `@access.guard()` as a decorator, the endpoint function must have a `request: Request` parameter so the guard can resolve the auth context.
 
+> **`info`** — See source code for full API.
+
+When using `@access.guard()` as a decorator, the endpoint function must have a `request: Request` parameter so the guard can resolve the auth context.
+
+:::
 ## Composable Requirements
 
 For complex authorization rules, use `Permission`, `Role`, and the `&` (AND) / `|` (OR) operators directly with `auth.require()`:
@@ -290,11 +307,11 @@ registry.role("viewer", permissions=["task:read", "user:read"])  # specific perm
 
 ## How Permission Resolution Works
 
-urauth provides two checkers:
+urauth provides two checkers. Both use **semantic matching** -- they compare the `(resource, action)` pair regardless of which separator was used to define the permission. There is no `separator` parameter on checkers.
 
 ### StringChecker (default)
 
-The `StringChecker` matches the required `"resource:action"` string against the permissions in the `AuthContext`. It supports exact match and wildcards (`"*"`, `"resource:*"`).
+The `StringChecker` matches the required permission against the permissions in the `AuthContext` using semantic comparison. It supports exact match and wildcards (`Permission("*")` for global wildcard, `"resource:*"` for resource-level wildcard).
 
 Use `StringChecker` when permissions are stored directly on users or in JWT claims.
 
@@ -306,9 +323,11 @@ The `RoleExpandingChecker` is produced by `registry.build_checker()` and used au
 2. Expands roles using the hierarchy (e.g., `["editor"]` becomes `{"editor", "viewer"}`)
 3. Collects all permissions from the expanded role set
 4. Also includes direct permissions from `AuthContext.permissions`
-5. Checks the required `"resource:action"` against the collected set (with wildcard support)
+5. Checks the required permission against the collected set using semantic matching (with wildcard support)
 
 The expansion is computed once at startup and cached, so hierarchy lookups are O(1) at request time.
+
+The underlying `match_permission()` function accepts `Permission | str` and performs separator-agnostic comparison -- `"task:read"`, `"task.read"`, and `Permission("task", "read")` all match each other.
 
 ## Recap
 

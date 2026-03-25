@@ -32,10 +32,10 @@ class TestPermissionStringForm:
         p = Permission("user.read", separator=".")
         assert str(p.resource) == "user"
         assert str(p.action) == "read"
-        assert str(p) == "user:read"  # __str__ always uses ":"
+        assert str(p) == "user.read"  # __str__ uses auto-detected separator
 
     def test_invalid_string_no_separator(self) -> None:
-        with pytest.raises(ValueError, match="must contain"):
+        with pytest.raises(ValueError, match="No separator found"):
             Permission("userread")
 
     def test_wildcard_permission(self) -> None:

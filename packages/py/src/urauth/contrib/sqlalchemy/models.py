@@ -62,6 +62,79 @@ class RoleMixin:
     description: Mapped[str] = mapped_column(String(255), default="", nullable=False)
 
 
+class TenantMixin:
+    """Standard columns for a tenant hierarchy node.
+
+    Provides: ``id``, ``name``, ``slug``, ``level``, ``parent_id``,
+    ``is_active``, ``created_at``.
+
+    Uses a self-referential ``parent_id`` for tree structure.
+    Users must set ``__tablename__`` and configure relationships.
+
+    Usage::
+
+        class Tenant(Base, TenantMixin):
+            __tablename__ = "tenants"
+            parent = relationship("Tenant", remote_side=[TenantMixin.id])
+            children = relationship("Tenant", back_populates="parent")
+    """
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    level: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    parent_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class TenantRoleMixin:
+    """Tenant-scoped role: a role that belongs to a specific tenant.
+
+    Provides: ``id``, ``name``, ``description``, ``tenant_id``.
+
+    Usage::
+
+        class TenantRole(Base, TenantRoleMixin):
+            __tablename__ = "tenant_roles"
+            __table_args__ = (UniqueConstraint("name", "tenant_id"),)
+            tenant = relationship("Tenant")
+    """
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    description: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    tenant_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+
+
+def tenant_membership_table(
+    base: Any,
+    *,
+    table_name: str = "tenant_memberships",
+    user_table: str = "users",
+    tenant_table: str = "tenants",
+    role_table: str = "tenant_roles",
+) -> Table:
+    """Create a user-tenant-role many-to-many association table.
+
+    A user can hold multiple roles within the same tenant.
+
+    Args:
+        base: Your SQLAlchemy ``DeclarativeBase`` class.
+        table_name: Name for the association table.
+        user_table: Name of the users table (for foreign key).
+        tenant_table: Name of the tenants table (for foreign key).
+        role_table: Name of the tenant roles table (for foreign key).
+    """
+    return Table(
+        table_name,
+        base.metadata,
+        Column("user_id", Integer, ForeignKey(f"{user_table}.id", ondelete="CASCADE"), primary_key=True),
+        Column("tenant_id", Integer, ForeignKey(f"{tenant_table}.id", ondelete="CASCADE"), primary_key=True),
+        Column("role_id", Integer, ForeignKey(f"{role_table}.id", ondelete="CASCADE"), primary_key=True),
+    )
+
+
 def user_role_table(
     base: Any,
     *,

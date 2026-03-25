@@ -6,10 +6,14 @@ Utilities for testing authenticated FastAPI endpoints without running a full aut
 
 Generate a token pair for testing without full auth setup.
 
-::: urauth.fastapi.testing.create_test_token
+
+> **`urauth.fastapi.testing.create_test_token`** — See source code for full API.
+
 
 ## AuthOverride
 
 Context manager that overrides auth dependencies in tests, letting you simulate any user, role, or permission state.
 
-::: urauth.fastapi.testing.AuthOverride
+
+> **`urauth.fastapi.testing.AuthOverride`** — See source code for full API.
+

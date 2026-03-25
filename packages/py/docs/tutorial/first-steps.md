@@ -35,16 +35,17 @@ class User:
     roles: list[str] = field(default_factory=list)
 ```
 
-!!! info "Protocol, not base class"
-    urauth uses `UserProtocol` -- a runtime-checkable protocol that only requires `id` and `is_active`. You never inherit from a base class. Any object with those two attributes works.
+::: info Protocol, not base class
+urauth uses `UserProtocol` -- a runtime-checkable protocol that only requires `id` and `is_active`. You never inherit from a base class. Any object with those two attributes works.
 
-    ```python
-    from urauth.types import UserProtocol
+```python
+from urauth.types import UserProtocol
 
-    # Your User dataclass satisfies this automatically
-    assert isinstance(User(id="1", username="a", hashed_password="x"), UserProtocol)
-    ```
+# Your User dataclass satisfies this automatically
+assert isinstance(User(id="1", username="a", hashed_password="x"), UserProtocol)
+```
 
+:::
 ## Subclass Auth
 
 The core of urauth is the `Auth` class. Subclass it and override three methods to connect your user storage:
@@ -64,13 +65,13 @@ USERS: dict[str, User] = {
 
 
 class MyAuth(Auth):
-    async def get_user(self, user_id):                        # (1)!
+    async def get_user(self, user_id):                        // (1)
         return next((u for u in USERS.values() if u.id == str(user_id)), None)
 
-    async def get_user_by_username(self, username):            # (2)!
+    async def get_user_by_username(self, username):            // (2)
         return USERS.get(username)
 
-    async def verify_password(self, user, password):           # (3)!
+    async def verify_password(self, user, password):           // (3)
         return hasher.verify(password, user.hashed_password)
 ```
 
@@ -78,22 +79,23 @@ class MyAuth(Auth):
 2. Called during login to find the user by username or email.
 3. Called during login to verify the plaintext password against the stored hash.
 
-!!! tip "Sync or async -- your choice"
-    All overridable methods on `Auth` accept both sync and async implementations. urauth handles both transparently:
+::: tip Sync or async -- your choice
+All overridable methods on `Auth` accept both sync and async implementations. urauth handles both transparently:
 
-    ```python
-    # Sync works too -- no async/await needed
-    class SyncAuth(Auth):
-        def get_user(self, user_id):
-            return db.users.get(user_id)
+```python
+# Sync works too -- no async/await needed
+class SyncAuth(Auth):
+    def get_user(self, user_id):
+        return db.users.get(user_id)
 
-        def get_user_by_username(self, username):
-            return db.users.find_one(username=username)
+    def get_user_by_username(self, username):
+        return db.users.find_one(username=username)
 
-        def verify_password(self, user, password):
-            return hasher.verify(password, user.hashed_password)
-    ```
+    def verify_password(self, user, password):
+        return hasher.verify(password, user.hashed_password)
+```
 
+:::
 ## Wire Up FastAuth
 
 `FastAuth` is the FastAPI adapter. It wraps your `Auth` subclass and provides FastAPI-specific features: dependencies, guards, routers, and transports.
@@ -106,21 +108,31 @@ from urauth.backends.memory import MemoryTokenStore
 from urauth.fastapi import FastAuth
 
 core = MyAuth(
-    config=AuthConfig(secret_key="super-secret-key"),  # (1)!
-    token_store=MemoryTokenStore(),                     # (2)!
+    config=AuthConfig(secret_key="super-secret-key", allow_insecure_key=True),  // (1)
+    token_store=MemoryTokenStore(strict=False),                                 // (2)
 )
 auth = FastAuth(core)
 ```
 
-1. Never use the default `"CHANGE-ME-IN-PRODUCTION"` in production. Set `AUTH_SECRET_KEY` as an environment variable instead -- `AuthConfig` reads it automatically via pydantic-settings.
-2. `MemoryTokenStore` is for development. In production, use a Redis-backed store: `pip install "urauth[redis]"`.
+1. For development only. In production, set `AUTH_SECRET_KEY` via environment variable with a 32+ byte random key: `openssl rand -hex 32`. Remove `allow_insecure_key=True` — it is rejected in production mode.
+2. `MemoryTokenStore` is for development only. In production, use a Redis-backed store: `pip install "urauth[redis]"`.
 
+::: danger Production Requirements
+Before deploying to production:
+
+- Set `AUTH_SECRET_KEY` to a random 32+ byte key: `openssl rand -hex 32`
+- Set `AUTH_ENVIRONMENT=production` to enforce key validation
+- Replace `MemoryTokenStore` with a persistent store (Redis, database)
+- Set `AUTH_TOKEN_ISSUER` and `AUTH_TOKEN_AUDIENCE`
+- Enable CSRF if using cookie-based auth: `AUTH_CSRF_ENABLED=true`
+
+:::
 ## Create the App
 
 ```python
-app = FastAPI(lifespan=auth.lifespan())  # (1)!
-auth.init_app(app)                        # (2)!
-app.include_router(auth.password_auth_router())  # (3)!
+app = FastAPI(lifespan=auth.lifespan())  // (1)
+auth.init_app(app)                        // (2)
+app.include_router(auth.password_auth_router())  // (3)
 ```
 
 1. `auth.lifespan()` returns an ASGI lifespan context manager. Wire it into FastAPI so startup/shutdown hooks work.
@@ -133,7 +145,7 @@ Use `Depends(auth.current_user)` to require authentication. Note that `current_u
 
 ```python
 @app.get("/me")
-async def me(user=Depends(auth.current_user)):  # (1)!
+async def me(user=Depends(auth.current_user)):  // (1)
     return {"id": user.id, "username": user.username}
 ```
 

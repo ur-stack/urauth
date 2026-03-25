@@ -11,7 +11,8 @@ from httpx import ASGITransport, AsyncClient
 from starlette.requests import Request
 
 from urauth.auth import Auth
-from urauth.authz.primitives import Action, Permission, Relation, Resource, Role
+from urauth.authz.primitives import Action, Permission, Relation, RelationTuple, Resource, Role
+from urauth.backends.memory import MemoryTokenStore
 from urauth.config import AuthConfig
 from urauth.context import AuthContext
 from urauth.fastapi.auth import FastAuth
@@ -32,8 +33,8 @@ can_write_posts = Permission(post_res, write)
 can_delete_posts = Permission(post_res, delete)
 can_invite = Permission(org_res, invite)
 
-owns_post = Relation("owner", post_res)
-member_of = Relation("member", org_res)
+owns_post = Relation(post_res, "owner")
+member_of = Relation(org_res, "member")
 
 viewer = Role("viewer", [can_read_users])
 editor = Role("editor", [can_read_users, can_write_posts])
@@ -71,8 +72,8 @@ class _CoreAuth(Auth):
         role_map = {"admin": admin, "editor": editor, "viewer": viewer}
         return [role_map[r] for r in user.roles if r in role_map]
 
-    async def get_user_relations(self, user: Any) -> list[tuple[Relation, str]]:  # type: ignore[override]
-        return [(owns_post, "42"), (member_of, "acme")]
+    async def get_user_relations(self, user: Any) -> list[RelationTuple]:  # type: ignore[override]
+        return [RelationTuple(owns_post, "42"), RelationTuple(member_of, "acme")]
 
     async def check_relation(self, user: Any, relation: Relation, resource_id: str) -> bool:  # type: ignore[override]
         return (relation, resource_id) in [(owns_post, "42"), (member_of, "acme")]
@@ -96,6 +97,7 @@ def core_auth(alice: FakeUser, bob: FakeUser) -> _CoreAuth:
     return _CoreAuth(
         users={alice.id: alice, bob.id: bob},
         config=AuthConfig(secret_key=SECRET),
+        token_store=MemoryTokenStore(strict=False),
     )
 
 
@@ -426,7 +428,7 @@ class TestContext:
                 "user": ctx.user.id,
                 "roles": [r.name for r in ctx.roles],
                 "perms": [str(p) for p in ctx.permissions],
-                "relations": [(str(r), rid) for r, rid in ctx.relations],
+                "relations": [(str(rt.relation), rt.object_id) for rt in ctx.relations],
             }
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

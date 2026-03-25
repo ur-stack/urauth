@@ -107,9 +107,12 @@ async def get_data(request: Request):
     return {"data": "..."}
 ```
 
-!!! note
-    When using decorator mode, the endpoint must have a `request: Request` parameter so the rate limiter can extract the client IP.
 
+> **`info`** — See source code for full API.
+
+When using decorator mode, the endpoint must have a `request: Request` parameter so the rate limiter can extract the client IP.
+
+:::
 ### Rate Limit Per User
 
 Pass an `Auth` instance to extract user identity from the JWT or cached `AuthContext`:

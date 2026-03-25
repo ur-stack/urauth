@@ -24,9 +24,12 @@ app.add_middleware(CSRFMiddleware, config=config)
 2. On unsafe requests (`POST`, `PUT`, `DELETE`, `PATCH`), the middleware checks that the `X-CSRF-Token` header matches the `csrf_token` cookie.
 3. If they do not match (or the header is missing), the request is rejected with `403 Forbidden`.
 
-!!! info
-    The double-submit pattern works because an attacker can trigger a request with the cookie (browsers send cookies automatically), but cannot read the cookie value to set the header.
 
+> **`info`** — See source code for full API.
+
+The double-submit pattern works because an attacker can trigger a request with the cookie (browsers send cookies automatically), but cannot read the cookie value to set the header.
+
+:::
 ## Frontend Integration
 
 Your JavaScript frontend needs to read the CSRF cookie and include it as a header:
@@ -61,5 +64,9 @@ fetch("/api/posts", {
 | `csrf_cookie_name` | `str` | `"csrf_token"` | Name of the CSRF cookie |
 | `csrf_header_name` | `str` | `"X-CSRF-Token"` | Header to check against the cookie |
 
-!!! tip
-    CSRF protection is only needed when using cookie-based authentication. Bearer token authentication is inherently immune to CSRF because the token must be explicitly included in the request header.
+
+> **`tip`** — See source code for full API.
+
+CSRF protection is only needed when using cookie-based authentication. Bearer token authentication is inherently immune to CSRF because the token must be explicitly included in the request header.
+
+:::

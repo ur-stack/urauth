@@ -17,13 +17,16 @@ A SaaS task manager with complete authentication and authorization. Each page in
 | [Refresh Tokens](refresh-tokens.md) | Token rotation, reuse detection, logout, logout-all |
 | [Pipeline](pipeline.md) | Declarative `Pipeline` config, `auto_router()`, strategy selection |
 | [OAuth2 & Social Login](oauth2-social-login.md) | Google, GitHub, and other providers via `OAuthLogin` |
-| [RBAC & Permissions](rbac-permissions.md) | Role hierarchies, wildcard permissions, `RoleExpandingChecker` |
+| [Access Control (RBAC)](rbac-permissions.md) | Role hierarchies, wildcard permissions, `RoleExpandingChecker` |
 | [Relations](relations.md) | Zanzibar-style `Relation` primitives, `require_relation`, `check_relation` |
-| [Multi-Tenant](multi-tenant.md) | Tenant resolution from JWT claims, headers, scoped permissions |
+| [Multi-Tenant](multi-tenant.md) | Flat and hierarchical tenants, resolution chain, cascading permissions, default roles |
 
-!!! tip
-    Each page is self-contained with runnable code. Start from the beginning if this is your first time, or jump to the topic you need.
 
+> **`tip`** — See source code for full API.
+
+Each page is self-contained with runnable code. Start from the beginning if this is your first time, or jump to the topic you need.
+
+:::
 ## Prerequisites
 
 - Python 3.10+

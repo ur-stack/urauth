@@ -23,9 +23,12 @@ auth = FastAuth(core, transport=CookieTransport(config))
 
 With this setup, `POST /auth/login` sets a cookie instead of returning a bearer token.
 
-!!! warning
-    Set `cookie_secure=False` only during local development over HTTP.
 
+> **`warning`** — See source code for full API.
+
+Set `cookie_secure=False` only during local development over HTTP.
+
+:::
 ## Pipeline Approach
 
 When using a `Pipeline`, set `transport="cookie"` on the strategy and the transport is configured automatically:
@@ -52,8 +55,8 @@ Use bearer tokens as the primary method, with cookies as a fallback:
 from urauth.fastapi import FastAuth, HybridTransport, BearerTransport, CookieTransport
 
 transport = HybridTransport(
-    BearerTransport(),           # (1)!
-    CookieTransport(config),     # (2)!
+    BearerTransport(),           // (1)
+    CookieTransport(config),     // (2)
 )
 
 auth = FastAuth(core, transport=transport)
@@ -107,5 +110,9 @@ app.add_middleware(
 )
 ```
 
-!!! tip
-    This only works with cookie transport — bearer tokens are returned in the response body and cannot be silently refreshed.
+
+> **`tip`** — See source code for full API.
+
+This only works with cookie transport — bearer tokens are returned in the response body and cannot be silently refreshed.
+
+:::

@@ -4,67 +4,41 @@
 
 urauth gives you a single, composable auth layer that works with any Python framework. Subclass one class, override a few methods, and get JWT auth, OAuth2, RBAC, guards, and more -- with zero boilerplate.
 
----
-
-<div class="grid cards" markdown>
-
--   :material-key-variant: **JWT Auth**
-
-    ---
+### JWT Auth
 
     Issue, validate, rotate, and revoke JWTs out of the box. Access + refresh token pairs with configurable TTL, family-based reuse detection, and pluggable token stores.
 
--   :material-account-key: **OAuth2 & Social Login**
-
-    ---
+### OAuth2 & Social Login
 
     Google, GitHub, Microsoft, Apple, Discord, GitLab -- add social login with a single provider config. Magic link and OTP login methods included.
 
--   :material-shield-lock: **RBAC & Permissions**
-
-    ---
+### Access Control
 
     Define roles with permissions and inheritance via `RoleRegistry`. Use `PermissionEnum` for type-safe permission definitions. Wildcards (`*`, `user:*`) supported.
 
--   :material-gate: **Guards & Requirements**
-
-    ---
+### Guards & Requirements
 
     Composable `Permission`, `Role`, and `Relation` primitives with `&` (AND) and `|` (OR) operators. Every guard works as both a `@decorator` and `Depends()`.
 
--   :material-pipe: **Pipeline Config**
-
-    ---
+### Pipeline Config
 
     Declare your entire auth setup in one `Pipeline` object -- strategy, login methods, MFA, password reset, account linking -- and `auto_router()` generates all routes.
 
--   :material-domain: **Multi-Tenant**
+### Multi-Tenant & Hierarchy
 
-    ---
+    Flat or hierarchical tenants (Organization -> Department -> Team). Configurable resolution from JWT claims, headers, paths, or subdomains. Cascading permissions and default role provisioning.
 
-    Tenant-scoped authentication with configurable tenant header and JWT claims. Scoped permission checks via `scope=` and `scope_from=` parameters.
-
--   :material-swap-horizontal: **Pluggable Transports**
-
-    ---
+### Pluggable Transports
 
     Bearer header, HTTP-only cookie, or hybrid (try bearer then cookie). Swap transports without touching your application code.
 
--   :material-code-tags: **Protocol-Based**
-
-    ---
+### Protocol-Based
 
     `TokenStore`, `SessionStore`, `PermissionChecker`, `UserProtocol` -- every extension point is a Python `Protocol`. No base classes to inherit, no vendor lock-in.
 
--   :material-speedometer: **Rate Limiting**
-
-    ---
+### Rate Limiting
 
     Built-in `RateLimiter` with pluggable key strategies. Protect login endpoints from brute-force attacks without external dependencies.
-
-</div>
-
----
 
 ## Quick Start
 
@@ -156,72 +130,83 @@ async def create_task(ctx: AuthContext = Depends(auth.context)):
     return {"created_by": ctx.user.username}
 ```
 
----
-
 ## Installation
 
-=== "Base"
+::: code-group
 
-    ```bash
-    pip install urauth
-    ```
+**Base**
 
-    Core auth primitives, JWT tokens, password hashing. No framework dependency.
 
-=== "FastAPI"
+```bash
+pip install urauth
+```
 
-    ```bash
-    pip install "urauth[fastapi]"
-    ```
+Core auth primitives, JWT tokens, password hashing. No framework dependency.
 
-    Adds `FastAuth`, guards, access control, transports, and pre-built routers.
+```
 
-=== "OAuth"
+**FastAPI**
 
-    ```bash
-    pip install "urauth[oauth]"
-    ```
 
-    Adds OAuth2 client support for social login providers.
+```bash
+pip install "urauth[fastapi]"
+```
 
-=== "Redis"
+Adds `FastAuth`, guards, access control, transports, and pre-built routers.
 
-    ```bash
-    pip install "urauth[redis]"
-    ```
+```
 
-    Adds Redis-backed token store and session store for production deployments.
+**OAuth**
 
-=== "Everything"
 
-    ```bash
-    pip install "urauth[all]"
-    ```
+```bash
+pip install "urauth[oauth]"
+```
 
-    All optional dependencies: FastAPI, OAuth, Redis.
+Adds OAuth2 client support for social login providers.
 
----
+```
+
+**Redis**
+
+
+```bash
+pip install "urauth[redis]"
+```
+
+Adds Redis-backed token store and session store for production deployments.
+
+```
+
+**Everything**
+
+
+```bash
+pip install "urauth[all]"
+```
+
+All optional dependencies: FastAPI, OAuth, Redis.
+
+```
+:::
 
 ## Next Steps
 
-<div class="grid cards" markdown>
 
--   :material-school: **[Tutorial](tutorial/index.md)**
-
-    ---
+### [Tutorial](tutorial/index.md)
 
     Step-by-step guide from first install to multi-tenant RBAC. Start here if you are new to urauth.
 
--   :material-book-open-variant: **[How-To Guides](how-to/index.md)**
-
-    ---
+### [How-To Guides](how-to/index.md)
 
     Task-oriented recipes for common scenarios like custom token stores, database-backed roles, and testing.
 
--   :material-api: **[Reference](reference/index.md)**
+### [Best Practices](best-practices/index.md)
 
-    ---
+    Security, architecture, multi-tenancy, and testing recommendations with real-world examples.
+
+### [Reference](reference/index.md)
 
     Complete API reference for every class, method, and protocol.
 
-</div>
+

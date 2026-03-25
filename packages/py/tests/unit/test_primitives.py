@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from urauth.authz.primitives import Action, Permission, Relation, Resource, Role, match_permission
 from urauth.context import AuthContext
 
@@ -72,12 +74,13 @@ class TestPermission:
         assert p != 42
         assert p.__eq__(42) is NotImplemented
 
-    def test_hash_matches_str(self) -> None:
+    def test_hash_is_semantic(self) -> None:
         p = Permission("user", "read")
-        assert hash(p) == hash("user:read")
+        assert hash(p) == hash(Permission("user:read"))
+        assert hash(Permission("task:read")) == hash(Permission("task.read"))
 
-    def test_usable_in_set_with_strings(self) -> None:
-        s = {Permission("user", "read"), "user:read"}
+    def test_usable_in_set_with_permissions(self) -> None:
+        s = {Permission("user", "read"), Permission("user:read")}
         assert len(s) == 1
 
     def test_repr(self) -> None:
@@ -104,49 +107,49 @@ class TestPermission:
 
 class TestRelation:
     def test_str_form(self) -> None:
-        r = Relation("owner", "post")
+        r = Relation("post", "owner")
         assert str(r) == "post#owner"
 
     def test_from_typed_resource(self) -> None:
-        r = Relation("owner", Resource("post"))
+        r = Relation(Resource("post"), "owner")
         assert str(r) == "post#owner"
 
     def test_eq_relation(self) -> None:
-        r1 = Relation("owner", "post")
-        r2 = Relation("owner", Resource("post"))
+        r1 = Relation("post", "owner")
+        r2 = Relation(Resource("post"), "owner")
         assert r1 == r2
 
     def test_eq_string(self) -> None:
-        r = Relation("owner", "post")
+        r = Relation("post", "owner")
         assert r == "post#owner"
 
     def test_ne(self) -> None:
-        r = Relation("owner", "post")
-        assert r != Relation("member", "post")
-        assert r != Relation("owner", "org")
+        r = Relation("post", "owner")
+        assert r != Relation("post", "member")
+        assert r != Relation("org", "owner")
         assert r != "post#member"
 
     def test_ne_incompatible_type(self) -> None:
-        r = Relation("owner", "post")
+        r = Relation("post", "owner")
         assert r != 42
         assert r.__eq__(42) is NotImplemented
 
     def test_hash(self) -> None:
-        r1 = Relation("owner", "post")
-        r2 = Relation("owner", "post")
+        r1 = Relation("post", "owner")
+        r2 = Relation("post", "owner")
         assert hash(r1) == hash(r2)
 
     def test_usable_in_set(self) -> None:
-        s = {Relation("owner", "post"), Relation("owner", "post"), Relation("member", "org")}
+        s = {Relation("post", "owner"), Relation("post", "owner"), Relation("org", "member")}
         assert len(s) == 2
 
     def test_repr(self) -> None:
-        r = Relation("owner", "post")
+        r = Relation("post", "owner")
         assert "owner" in repr(r)
         assert "post" in repr(r)
 
     def test_resource_attribute(self) -> None:
-        r = Relation("owner", "post")
+        r = Relation("post", "owner")
         assert isinstance(r.resource, Resource)
         assert r.name == "owner"
 
@@ -222,10 +225,12 @@ class TestMatchPermission:
         assert match_permission("res:*", "res:sub:act") is True
 
     def test_empty_pattern(self) -> None:
-        assert match_permission("", "user:read") is False
+        with pytest.raises(ValueError):
+            match_permission("", "user:read")
 
     def test_empty_target(self) -> None:
-        assert match_permission("user:read", "") is False
+        with pytest.raises(ValueError):
+            match_permission("user:read", "")
 
     def test_case_sensitive(self) -> None:
         assert match_permission("User:Read", "user:read") is False
@@ -271,7 +276,7 @@ class TestRequirementComposition:
         ctx = AuthContext.anonymous()
         perm = Permission("user", "read")
         role = Role("admin")
-        rel = Relation("owner", "post")
+        rel = Relation("post", "owner")
         assert perm.evaluate(ctx) is False
         assert role.evaluate(ctx) is False
         assert rel.evaluate(ctx) is False

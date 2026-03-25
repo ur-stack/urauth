@@ -17,7 +17,7 @@ Access control requires three things:
 
 ### Step 1: Define Permissions
 
-Use `PermissionEnum` to define your permissions as typed enums. Each member is a `(resource, action)` tuple that becomes a `Permission` object:
+Use `PermissionEnum` to define your permissions as typed enums. Each member becomes a `Permission` object. The format is flexible -- use a `(resource, action)` tuple or a single string with any separator from `@#.:|\/&$`:
 
 ```python
 from urauth import PermissionEnum
@@ -26,8 +26,8 @@ from urauth import PermissionEnum
 class Perms(PermissionEnum):
     # Task permissions
     TASK_READ = ("task", "read")
-    TASK_WRITE = ("task", "write")
-    TASK_DELETE = ("task", "delete")
+    TASK_WRITE = "task:write"       # colon separator
+    TASK_DELETE = "task.delete"     # dot separator -- also works
 
     # User permissions
     USER_READ = ("user", "read")
@@ -39,7 +39,7 @@ class Perms(PermissionEnum):
     ADMIN_SETTINGS = ("admin", "settings")
 ```
 
-Each member's `.value` is a `Permission` instance. The enum members compare equal to their string form, so `Perms.TASK_READ == "task:read"` is `True`.
+Each member's `.value` is a `Permission` instance. Equality is semantic -- `Perms.TASK_READ == Permission("task.read")` is `True` regardless of separator. The `Permission("*")` value acts as a global wildcard.
 
 ### Step 2: Define Roles
 
@@ -102,9 +102,10 @@ async def list_tasks(request: Request):
     return get_all_tasks()
 ```
 
-!!! warning "Request parameter required"
-    When using `@access.guard()` as a **decorator**, the endpoint function must have a `request: Request` parameter. The guard needs it to resolve the auth context.
+::: warning Request parameter required
+When using `@access.guard()` as a **decorator**, the endpoint function must have a `request: Request` parameter. The guard needs it to resolve the auth context.
 
+:::
 ### With resource and action strings
 
 ```python
@@ -227,6 +228,8 @@ access = auth.access_control(registry=registry)
 # Equivalent to:
 access = auth.access_control(checker=registry.build_checker())
 ```
+
+Both built-in checkers (`StringChecker` and `RoleExpandingChecker`) use semantic matching -- they compare permissions by their `(resource, action)` pair regardless of separator. There is no `separator` configuration parameter.
 
 ## Scoped Access
 
@@ -508,7 +511,7 @@ You can use both in the same application. Guards and access control share the sa
 
 ## Recap
 
-- `PermissionEnum` defines typed permissions as `(resource, action)` enums.
+- `PermissionEnum` defines typed permissions using `(resource, action)` tuples or single strings with any separator (e.g., `"task:read"`, `"task.read"`).
 - `RoleRegistry` maps roles to permissions with inheritance and composition via `include()`.
 - `access = auth.access_control(registry=registry)` creates the access control instance.
 - `@access.guard(Perms.X)` works as both a decorator and `Depends()`.

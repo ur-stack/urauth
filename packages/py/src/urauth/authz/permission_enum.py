@@ -14,21 +14,28 @@ class PermissionEnum(Enum):
     Each member's ``.value`` is a ``Permission`` instance.
     Members delegate ``__str__``, ``__eq__``, ``__hash__`` to their value.
 
-    Usage::
+    Separator is auto-detected from the string form. Any allowed separator works::
 
         class Perms(PermissionEnum):
-            USER_READ = "user:read"                        # string form
-            TASK_WRITE = ("task", "write")                  # tuple form
-            ADMIN_ALL = Permission("admin", "*")            # Permission object
+            USER_READ = "user:read"                        # colon
+            TASK_WRITE = "task.write"                      # dot
+            ADMIN_ALL = ("admin", "*")                     # tuple form
+            CUSTOM = Permission("x", "y")                  # Permission object
+
+    For edge cases, define ``__parser__`` to override auto-detection::
+
+        class Perms(PermissionEnum):
+            __parser__ = lambda s: (s.split(":")[-2], s.split(":")[-1])
+            TASK_READ = "urn:service:task:read"
     """
 
     def __new__(cls, *args: Any) -> PermissionEnum:
+        parser = cls.__dict__.get("__parser__")
+
         if len(args) == 2:
-            # Tuple form: ("user", "read")
             perm = Permission(str(args[0]), str(args[1]))
         elif len(args) == 1 and isinstance(args[0], str):
-            # String form: "user:read"
-            perm = Permission(args[0])
+            perm = Permission(args[0], parser=parser)
         elif len(args) == 1 and isinstance(args[0], Permission):
             perm = args[0]
         else:

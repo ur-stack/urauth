@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any, Protocol, runtime_checkable
 
-from urauth.authz.primitives import match_permission
+from urauth.authz.primitives import Permission, match_permission
 from urauth.context import AuthContext
 
 
@@ -28,16 +28,13 @@ class PermissionChecker(Protocol):
 
 
 class StringChecker:
-    """Default checker — matches ``"resource:action"`` against context permissions.
+    """Default checker — matches permissions semantically (separator-agnostic).
 
     Supports:
     - Exact match: ``"user:read"``
     - Wildcard: ``"*"`` grants everything
     - Resource wildcard: ``"user:*"`` grants all actions on ``user``
     """
-
-    def __init__(self, *, separator: str = ":") -> None:
-        self._sep = separator
 
     async def has_permission(
         self,
@@ -48,33 +45,30 @@ class StringChecker:
         scope: str | None = None,
         **kwargs: Any,
     ) -> bool:
-        required = f"{resource}{self._sep}{action}"
-        perms = [str(p) for p in ctx.permissions]
+        required = Permission(resource, action)
+        perms = ctx.permissions
 
         # If scoped, check scoped permissions first
         if scope is not None and scope in ctx.scopes:
-            perms = [str(p) for p in ctx.scopes[scope]]
+            perms = ctx.scopes[scope]
 
-        return any(match_permission(perm, required, separator=self._sep) for perm in perms)
+        return any(match_permission(perm, required) for perm in perms)
 
 
 class RoleExpandingChecker:
-    """Expands roles via hierarchy, maps to permission strings, then checks.
+    """Expands roles via hierarchy, maps to permission objects, then checks.
 
     Replaces the old ``RBACManager`` + ``PermissionManager`` combination.
     """
 
     def __init__(
         self,
-        role_permissions: dict[str, set[str]],
+        role_permissions: dict[str, set[Permission]],
         *,
         hierarchy: dict[str, list[str]] | None = None,
-        separator: str = ":",
     ) -> None:
-        # Normalize Permission objects to strings at init time
-        self._role_permissions = {role: {str(p) for p in perms} for role, perms in role_permissions.items()}
+        self._role_permissions = role_permissions
         self._hierarchy = hierarchy or {}
-        self._sep = separator
         self._expanded: dict[str, set[str]] = {}
         self._build_expansion()
 
@@ -103,8 +97,8 @@ class RoleExpandingChecker:
                 result.add(role)
         return result
 
-    def _permissions_for_roles(self, roles: set[str]) -> set[str]:
-        result: set[str] = set()
+    def _permissions_for_roles(self, roles: set[str]) -> set[Permission]:
+        result: set[Permission] = set()
         for role in roles:
             result |= self._role_permissions.get(role, set())
         return result
@@ -123,7 +117,7 @@ class RoleExpandingChecker:
         perms = self._permissions_for_roles(effective)
 
         # Also include direct permissions from context
-        perms |= {str(p) for p in ctx.permissions}
+        perms |= set(ctx.permissions)
 
-        required = f"{resource}{self._sep}{action}"
-        return any(match_permission(perm, required, separator=self._sep) for perm in perms)
+        required = Permission(resource, action)
+        return any(match_permission(perm, required) for perm in perms)

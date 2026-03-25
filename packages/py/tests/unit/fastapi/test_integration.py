@@ -56,7 +56,7 @@ def bob() -> FakeUser:
 @pytest.fixture
 def app(alice: FakeUser, bob: FakeUser) -> FastAPI:
     backend = FakeBackend([alice, bob])
-    config = AuthConfig(secret_key="integration-test-key")
+    config = AuthConfig(secret_key="integration-test-key", allow_insecure_key=True)
     token_store = MemoryTokenStore()
     core = _BackendAuth(backend, config=config, token_store=token_store)
     auth = FastAuth(core)

@@ -88,19 +88,19 @@ def _make_cookie_request(cookies: dict[str, str]) -> Request:
 
 class TestCookieTransport:
     def test_extract_from_cookie(self) -> None:
-        config = AuthConfig(secret_key="test", cookie_name="access_token")
+        config = AuthConfig(secret_key="test", allow_insecure_key=True, cookie_name="access_token")
         t = CookieTransport(config)
         req = _make_cookie_request({"access_token": "my-token"})
         assert t.extract_token(req) == "my-token"
 
     def test_extract_missing_cookie(self) -> None:
-        config = AuthConfig(secret_key="test", cookie_name="access_token")
+        config = AuthConfig(secret_key="test", allow_insecure_key=True, cookie_name="access_token")
         t = CookieTransport(config)
         req = _make_cookie_request({})
         assert t.extract_token(req) is None
 
     def test_set_token(self) -> None:
-        config = AuthConfig(secret_key="test", cookie_name="access_token", cookie_secure=True, cookie_httponly=True)
+        config = AuthConfig(secret_key="test", allow_insecure_key=True, cookie_name="access_token", cookie_secure=True, cookie_httponly=True)
         t = CookieTransport(config)
         response = Response()
         t.set_token(response, "new-token")
@@ -112,7 +112,7 @@ class TestCookieTransport:
         assert "secure" in cookie_headers[0].lower()
 
     def test_delete_token(self) -> None:
-        config = AuthConfig(secret_key="test", cookie_name="access_token")
+        config = AuthConfig(secret_key="test", allow_insecure_key=True, cookie_name="access_token")
         t = CookieTransport(config)
         response = Response()
         t.delete_token(response)
@@ -122,7 +122,7 @@ class TestCookieTransport:
         assert 'max-age=0' in cookie_headers[0].lower() or '="";' in cookie_headers[0]
 
     def test_custom_cookie_name(self) -> None:
-        config = AuthConfig(secret_key="test", cookie_name="my_auth")
+        config = AuthConfig(secret_key="test", allow_insecure_key=True, cookie_name="my_auth")
         t = CookieTransport(config)
         req = _make_cookie_request({"my_auth": "tok123"})
         assert t.extract_token(req) == "tok123"
@@ -130,7 +130,7 @@ class TestCookieTransport:
 
 class TestCookieTransportSecurityAttributes:
     def test_samesite_attribute(self) -> None:
-        config = AuthConfig(secret_key="test", cookie_samesite="strict")
+        config = AuthConfig(secret_key="test", allow_insecure_key=True, cookie_samesite="strict")
         t = CookieTransport(config)
         response = Response()
         t.set_token(response, "tok")
@@ -138,7 +138,7 @@ class TestCookieTransportSecurityAttributes:
         assert "samesite=strict" in cookie.lower()
 
     def test_domain_and_path_in_set_cookie(self) -> None:
-        config = AuthConfig(secret_key="test", cookie_domain=".example.com", cookie_path="/api")
+        config = AuthConfig(secret_key="test", allow_insecure_key=True, cookie_domain=".example.com", cookie_path="/api")
         t = CookieTransport(config)
         response = Response()
         t.set_token(response, "tok")
@@ -147,7 +147,7 @@ class TestCookieTransportSecurityAttributes:
         assert "path=/api" in cookie.lower()
 
     def test_delete_cookie_uses_domain_and_path(self) -> None:
-        config = AuthConfig(secret_key="test", cookie_domain=".example.com", cookie_path="/api")
+        config = AuthConfig(secret_key="test", allow_insecure_key=True, cookie_domain=".example.com", cookie_path="/api")
         t = CookieTransport(config)
         response = Response()
         t.delete_token(response)
@@ -158,7 +158,7 @@ class TestCookieTransportSecurityAttributes:
 
 class TestHybridTransportWithCookie:
     def test_bearer_priority_over_cookie(self) -> None:
-        config = AuthConfig(secret_key="test")
+        config = AuthConfig(secret_key="test", allow_insecure_key=True)
         bearer = BearerTransport()
         cookie = CookieTransport(config)
         hybrid = HybridTransport(bearer, cookie)
@@ -177,7 +177,7 @@ class TestHybridTransportWithCookie:
         assert hybrid.extract_token(req) == "bearer-token"
 
     def test_cookie_fallback(self) -> None:
-        config = AuthConfig(secret_key="test")
+        config = AuthConfig(secret_key="test", allow_insecure_key=True)
         bearer = BearerTransport()
         cookie = CookieTransport(config)
         hybrid = HybridTransport(bearer, cookie)
@@ -186,7 +186,7 @@ class TestHybridTransportWithCookie:
         assert hybrid.extract_token(req) == "cookie-token"
 
     def test_set_token_on_primary(self) -> None:
-        config = AuthConfig(secret_key="test")
+        config = AuthConfig(secret_key="test", allow_insecure_key=True)
         bearer = BearerTransport()
         cookie = CookieTransport(config)
         hybrid = HybridTransport(bearer, cookie)
@@ -196,7 +196,7 @@ class TestHybridTransportWithCookie:
         # HybridTransport delegates set_token to primary transport
 
     def test_delete_token_on_primary(self) -> None:
-        config = AuthConfig(secret_key="test")
+        config = AuthConfig(secret_key="test", allow_insecure_key=True)
         bearer = BearerTransport()
         cookie = CookieTransport(config)
         hybrid = HybridTransport(bearer, cookie)

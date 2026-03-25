@@ -88,8 +88,8 @@ def string_checker() -> StringChecker:
 def role_checker() -> RoleExpandingChecker:
     return RoleExpandingChecker(
         role_permissions={
-            "admin": {"user:read", "user:write", "user:delete"},
-            "viewer": {"user:read"},
+            "admin": {Permission("user:read"), Permission("user:write"), Permission("user:delete")},
+            "viewer": {Permission("user:read")},
         },
         hierarchy={"admin": ["viewer"]},
     )
@@ -655,8 +655,8 @@ class TestFastAuthAccessControl:
 
         checker = RoleExpandingChecker(
             role_permissions={
-                "admin": {"user:read", "user:write", "user:delete"},
-                "viewer": {"user:read"},
+                "admin": {Permission("user:read"), Permission("user:write"), Permission("user:delete")},
+                "viewer": {Permission("user:read")},
             },
             hierarchy={"admin": ["viewer"]},
         )
@@ -717,7 +717,7 @@ class TestFastAuthAccessControl:
     async def test_registry_based_access_control(self, alice: FakeUser, bob: FakeUser) -> None:
         """Test FastAuth.access_control(registry=...) integration."""
         backend = FakeBackend([alice, bob])
-        config = AuthConfig(secret_key="registry-integration-test-key")
+        config = AuthConfig(secret_key="registry-integration-test-key", allow_insecure_key=True)
         token_store = MemoryTokenStore()
         core = _TestBackendAuth(backend, config=config, token_store=token_store)
         auth = FastAuth(core)

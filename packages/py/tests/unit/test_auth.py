@@ -8,7 +8,8 @@ from typing import Any
 import pytest
 
 from urauth.auth import Auth
-from urauth.authz.primitives import Action, Permission, Relation, Resource, Role
+from urauth.authz.primitives import Action, Permission, Relation, RelationTuple, Resource, Role
+from urauth.backends.memory import MemoryTokenStore
 from urauth.config import AuthConfig
 from urauth.context import AuthContext
 from urauth.exceptions import UnauthorizedError
@@ -26,7 +27,7 @@ can_read = Permission(user_res, read)
 can_write = Permission(post_res, write)
 can_delete = Permission(post_res, delete)
 
-owns_post = Relation("owner", post_res)
+owns_post = Relation(post_res, "owner")
 
 viewer = Role("viewer", [can_read])
 editor = Role("editor", [can_read, can_write])
@@ -69,8 +70,8 @@ class SyncAuth(Auth):
     def get_user_permissions(self, user: Any) -> list[Permission]:
         return []
 
-    def get_user_relations(self, user: Any) -> list[tuple[Relation, str]]:
-        return [(owns_post, "42")]
+    def get_user_relations(self, user: Any) -> list[RelationTuple]:
+        return [RelationTuple(owns_post, "42")]
 
     def check_relation(self, user: Any, relation: Relation, resource_id: str) -> bool:
         return relation == owns_post and resource_id == "42"
@@ -102,8 +103,8 @@ class AsyncAuth(Auth):
     async def get_user_permissions(self, user: Any) -> list[Permission]:  # type: ignore[override]
         return [can_delete]  # direct permission
 
-    async def get_user_relations(self, user: Any) -> list[tuple[Relation, str]]:  # type: ignore[override]
-        return [(owns_post, "42")]
+    async def get_user_relations(self, user: Any) -> list[RelationTuple]:  # type: ignore[override]
+        return [RelationTuple(owns_post, "42")]
 
     async def check_relation(self, user: Any, relation: Relation, resource_id: str) -> bool:  # type: ignore[override]
         return relation == owns_post and resource_id == "42"
@@ -127,6 +128,7 @@ def sync_auth(alice: FakeUser, bob: FakeUser) -> SyncAuth:
     return SyncAuth(
         users={alice.id: alice, bob.id: bob},
         config=AuthConfig(secret_key=SECRET),
+        token_store=MemoryTokenStore(strict=False),
     )
 
 
@@ -135,6 +137,7 @@ def async_auth(alice: FakeUser, bob: FakeUser) -> AsyncAuth:
     return AsyncAuth(
         users={alice.id: alice, bob.id: bob},
         config=AuthConfig(secret_key=SECRET),
+        token_store=MemoryTokenStore(strict=False),
     )
 
 
@@ -290,7 +293,7 @@ class TestMixedAuth:
             async def get_user_roles(self, user: Any) -> list[Role]:  # type: ignore[override]
                 return [admin]
 
-        auth = MixedAuth(config=AuthConfig(secret_key=SECRET))
+        auth = MixedAuth(config=AuthConfig(secret_key=SECRET), token_store=MemoryTokenStore(strict=False))
         token = auth.token_service.create_token_pair("user-1")
         ctx = await auth.build_context(token.access_token)
         assert ctx.is_authenticated()

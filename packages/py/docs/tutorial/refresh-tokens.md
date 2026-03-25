@@ -69,9 +69,12 @@ You get a new token pair:
 }
 ```
 
-!!! info
-    The new access token is **not** fresh. Only tokens from `POST /auth/login` are fresh.
 
+> **`info`** — See source code for full API.
+
+The new access token is **not** fresh. Only tokens from `POST /auth/login` are fresh.
+
+:::
 ## Token Rotation
 
 By default, `rotate_refresh_tokens` is `True`. Every time a refresh token is used, the old one is revoked and a new one is issued. This limits the window of exposure if a refresh token is leaked.
@@ -85,16 +88,18 @@ config = AuthConfig(
 
 ## Reuse Detection
 
-!!! danger "Replay attack protection"
-    If a revoked refresh token is used again, urauth revokes **all tokens in that family** -- logging the user out of every session. This protects against token theft.
+::: danger Replay attack protection
+If a revoked refresh token is used again, urauth revokes **all tokens in that family** -- logging the user out of every session. This protects against token theft.
 
+:::
 Refresh tokens belong to a **family** (tracked by `family_id`). When rotation creates a new token, it inherits the family. If someone replays an old (revoked) refresh token, the entire family is invalidated.
 
 This requires a `TokenStore`. The built-in `MemoryTokenStore` tracks `family_id` on every token record and supports `revoke_family(family_id)` for whole-family invalidation. Use a persistent store in production (see [Custom Backends](../how-to/custom-backends.md)).
 
-!!! note "How family tracking works in MemoryTokenStore"
-    Each token is stored with a `family_id`. When a refresh token is used, the store looks up the family via `get_family_id(jti)`. If the token is already revoked, `revoke_family()` is called to invalidate every token sharing that family ID. This is the mechanism that catches replay attacks.
+::: info How family tracking works in MemoryTokenStore
+Each token is stored with a `family_id`. When a refresh token is used, the store looks up the family via `get_family_id(jti)`. If the token is already revoked, `revoke_family()` is called to invalidate every token sharing that family ID. This is the mechanism that catches replay attacks.
 
+:::
 ## Token Lifecycle
 
 All token operations -- issuing, validating, refreshing, and revoking -- are handled by `TokenLifecycle`. It coordinates JWT creation with store-based tracking and revocation so you never need to orchestrate multiple objects directly.

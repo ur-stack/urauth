@@ -2,6 +2,27 @@
 
 All configuration is managed through `AuthConfig`, a Pydantic Settings class that reads from environment variables with the `AUTH_` prefix.
 
+## Production Required Settings
+
+::: danger Set these before deploying
+These settings are **required** for production deployments. urauth will raise `ValueError` at startup if `AUTH_ENVIRONMENT=production` and key validation fails.
+
+:::
+```bash title=".env (production)"
+AUTH_ENVIRONMENT=production
+AUTH_SECRET_KEY=<output of: openssl rand -hex 32>
+AUTH_TOKEN_ISSUER=your-app-name
+AUTH_TOKEN_AUDIENCE=your-app-audience
+AUTH_CSRF_ENABLED=true  # if using cookie-based auth
+```
+
+| Setting | Why |
+|---------|-----|
+| `AUTH_SECRET_KEY` | Must be 32+ bytes for HMAC. Default key raises `ValueError`. |
+| `AUTH_ENVIRONMENT` | Set to `production` to enforce key validation and reject `allow_insecure_key`. |
+| `AUTH_TOKEN_ISSUER` | Prevents cross-app token confusion. |
+| `AUTH_TOKEN_AUDIENCE` | Limits token acceptance to intended consumers. |
+
 ## Environment Variables
 
 Every field can be set via environment variable:
@@ -24,9 +45,10 @@ AUTH_CSRF_ENABLED=true
 AUTH_TENANT_ENABLED=false
 ```
 
-!!! danger "Default secret key"
-    The default `secret_key` is `"CHANGE-ME-IN-PRODUCTION"`. **Never use this in production.** Always set `AUTH_SECRET_KEY` via environment variable.
+::: danger Default secret key
+The default `secret_key` is `"CHANGE-ME-IN-PRODUCTION"`. **Never use this in production.** Always set `AUTH_SECRET_KEY` via environment variable.
 
+:::
 ## All Configuration Fields
 
 ### JWT
@@ -84,6 +106,15 @@ AUTH_TENANT_ENABLED=false
 | `tenant_enabled` | `bool` | `False` | `AUTH_TENANT_ENABLED` | Enable multi-tenant mode |
 | `tenant_header` | `str` | `"X-Tenant-ID"` | `AUTH_TENANT_HEADER` | Tenant header name |
 | `tenant_claim` | `str` | `"tenant_id"` | `AUTH_TENANT_CLAIM` | JWT claim for tenant ID |
+
+### Multi-Tenant Hierarchy
+
+| Field | Type | Default | Env Var | Description |
+|-------|------|---------|---------|-------------|
+| `tenant_hierarchy_enabled` | `bool` | `False` | `AUTH_TENANT_HIERARCHY_ENABLED` | Enable hierarchical tenants |
+| `tenant_hierarchy_levels` | `list[str] \| None` | `None` | `AUTH_TENANT_HIERARCHY_LEVELS` | Ordered level names (e.g., `["organization", "department", "team"]`) |
+| `tenant_path_claim` | `str` | `"tenant_path"` | `AUTH_TENANT_PATH_CLAIM` | JWT claim name for the hierarchy path |
+| `tenant_default_level` | `str` | `"tenant"` | `AUTH_TENANT_DEFAULT_LEVEL` | Level name used when wrapping a flat `tenant_id` into a path |
 
 ### Router
 

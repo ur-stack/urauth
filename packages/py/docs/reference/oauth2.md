@@ -6,4 +6,6 @@ OAuth2/OIDC social login support. OAuth2 provider models are documented under [P
 
 Resolves the current tenant from the request for multi-tenant applications.
 
-::: urauth.fastapi.authz.multi_tenant.TenantResolver
+
+> **`urauth.fastapi.authz.multi_tenant.TenantResolver`** — See source code for full API.
+

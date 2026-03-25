@@ -27,12 +27,11 @@ class _FamilyRecord:
 class MemoryTokenStore:
     """In-memory token store for development and testing.
 
-    With ``strict=True``, unknown JTIs are treated as revoked (fail-closed).
-    Default is ``False`` (fail-open) for backward compatibility.
-    Production token stores should use fail-closed behavior.
+    With ``strict=True`` (default), unknown JTIs are treated as revoked (fail-closed).
+    Set ``strict=False`` for fail-open behavior (not recommended).
     """
 
-    def __init__(self, *, strict: bool = False) -> None:
+    def __init__(self, *, strict: bool = True) -> None:
         self._strict = strict
         self._tokens: dict[str, _TokenRecord] = {}
         self._user_tokens: dict[str, set[str]] = {}

@@ -67,4 +67,6 @@ def backend(alice: FakeUser, bob: FakeUser) -> FakeBackend:
 
 @pytest.fixture
 def token_store() -> MemoryTokenStore:
-    return MemoryTokenStore()
+    # Tests that bypass TokenLifecycle and create tokens directly via TokenService
+    # need strict=False since those tokens won't be registered in the store.
+    return MemoryTokenStore(strict=False)

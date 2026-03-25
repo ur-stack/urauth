@@ -11,7 +11,9 @@ from .primitives import AllOf as AllOf
 from .primitives import AnyOf as AnyOf
 from .primitives import Permission as Permission
 from .primitives import Relation as Relation
+from .primitives import RelationTuple as RelationTuple
 from .primitives import Requirement as Requirement
 from .primitives import Resource as Resource
 from .primitives import Role as Role
+from .relation_enum import RelationEnum as RelationEnum
 from .roles import RoleRegistry as RoleRegistry

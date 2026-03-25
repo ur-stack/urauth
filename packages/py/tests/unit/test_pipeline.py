@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from urauth.pipeline import (
-    MFA,
     AccountLinking,
     APIKeyStrategy,
     BasicAuthStrategy,
@@ -14,6 +13,7 @@ from urauth.pipeline import (
     Identifiers,
     JWTStrategy,
     MagicLinkLogin,
+    MFAMethod,
     Microsoft,
     OAuthLogin,
     OTPLogin,
@@ -115,17 +115,24 @@ class TestLoginMethods:
         assert m.rp_name == "TestApp"
 
 
-class TestMFA:
+class TestMFAMethod:
     def test_defaults(self):
-        m = MFA()
-        assert m.methods == ["otp"]
+        m = MFAMethod(method="otp")
+        assert m.method == "otp"
         assert m.required is False
         assert m.grace_period == 0
 
     def test_custom(self):
-        m = MFA(methods=["otp", "passkey"], required=True, grace_period=300)
+        m = MFAMethod(method="passkey", required=True, grace_period=300)
+        assert m.method == "passkey"
         assert m.required is True
-        assert "passkey" in m.methods
+        assert m.grace_period == 300
+
+    def test_list_config(self):
+        mfa = [MFAMethod(method="otp", required=False), MFAMethod(method="passkey")]
+        assert len(mfa) == 2
+        assert mfa[0].method == "otp"
+        assert mfa[1].method == "passkey"
 
 
 class TestAccountFeatures:
@@ -218,8 +225,12 @@ class TestPipeline:
         assert p.has_account_linking is True
 
     def test_has_mfa(self):
-        p = Pipeline(mfa=MFA(methods=["otp"]))
+        p = Pipeline(mfa=[MFAMethod(method="otp")])
         assert p.has_mfa is True
+
+    def test_has_mfa_empty_list(self):
+        p = Pipeline(mfa=[])
+        assert p.has_mfa is False
 
     def test_full_pipeline(self):
         """Test a fully-configured pipeline like the example in the docstring."""
@@ -235,7 +246,7 @@ class TestPipeline:
             magic_link=MagicLinkLogin(),
             otp=OTPLogin(code_type="numeric", digits=6),
             passkey=True,
-            mfa=MFA(methods=["otp", "passkey"], required=False),
+            mfa=[MFAMethod(method="otp"), MFAMethod(method="passkey")],
             password_reset=True,
             account_linking=True,
             identifiers=Identifiers(email=True, phone=True, username=False),
