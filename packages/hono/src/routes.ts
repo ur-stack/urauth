@@ -49,10 +49,10 @@ export function authRoutes(auth: Auth): Hono<UrAuthEnv> {
   // POST /logout — revoke current token
   router.post("/logout", async (c) => {
     const authCtx = c.get("auth");
-    if (authCtx?.token) {
+    if (authCtx.token) {
       // Re-extract raw token to revoke it
       const authHeader = c.req.header("Authorization");
-      if (authHeader) {
+      if (authHeader !== undefined && authHeader.length > 0) {
         const rawToken = authHeader.replace(/^Bearer\s+/i, "");
         await auth.lifecycle.revoke(rawToken);
       }
@@ -63,7 +63,7 @@ export function authRoutes(auth: Auth): Hono<UrAuthEnv> {
   // POST /logout-all — revoke all user tokens
   router.post("/logout-all", async (c) => {
     const authCtx = c.get("auth");
-    if (authCtx?.token) {
+    if (authCtx.token) {
       await auth.lifecycle.revokeAll(authCtx.token.sub);
     }
     return c.json({ ok: true });

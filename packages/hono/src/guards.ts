@@ -41,7 +41,7 @@ export function guard(auth: Auth, requirement: Requirement): AuthMiddleware {
 }
 
 /** Require authentication only (no specific permission). */
-export function protect(auth: Auth): AuthMiddleware {
+export function protect(_auth: Auth): AuthMiddleware {
   return wrapGuard(_requireAuth());
 }
 

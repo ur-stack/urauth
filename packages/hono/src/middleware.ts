@@ -38,14 +38,15 @@ export function urAuthMiddleware(
     let rawToken: string | null;
 
     switch (transport) {
+      case "bearer":
+        rawToken = extractToken(c);
+        break;
       case "cookie":
         rawToken = extractTokenFromCookie(c, cookieName);
         break;
       case "hybrid":
         rawToken = extractTokenHybrid(c, cookieName);
         break;
-      default:
-        rawToken = extractToken(c);
     }
 
     const ctx = await auth.buildContext(rawToken, { optional });
