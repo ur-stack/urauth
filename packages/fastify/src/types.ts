@@ -1,7 +1,5 @@
 import type { AuthContext, Requirement } from "@urauth/ts";
 import type {
-  FastifyRequest,
-  FastifyInstance,
   preHandlerHookHandler,
 } from "fastify";
 

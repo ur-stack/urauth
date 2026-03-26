@@ -8,7 +8,6 @@
 import type {
   FastifyInstance,
   FastifyPluginAsync,
-  FastifyRequest,
 } from "fastify";
 import fp from "fastify-plugin";
 import type { Auth } from "@urauth/node";
@@ -27,10 +26,10 @@ export interface UrAuthPluginOptions {
   cookieName?: string;
 }
 
-const plugin: FastifyPluginAsync<UrAuthPluginOptions> = async (
+const plugin: FastifyPluginAsync<UrAuthPluginOptions> = (
   app: FastifyInstance,
   opts: UrAuthPluginOptions,
-) => {
+): Promise<void> => {
   const { auth, transport = "bearer", cookieName = "access_token" } = opts;
 
   // Decorate request with auth property
@@ -49,18 +48,19 @@ const plugin: FastifyPluginAsync<UrAuthPluginOptions> = async (
     let rawToken: string | null;
 
     switch (transport) {
+      case "bearer":
+        rawToken = extractToken(request);
+        break;
       case "cookie":
         rawToken = extractTokenFromCookie(request, cookieName);
         break;
       case "hybrid":
         rawToken = extractTokenHybrid(request, cookieName);
         break;
-      default:
-        rawToken = extractToken(request);
     }
 
     // Check route-level auth config
-    const routeConfig = request.routeOptions?.config?.auth;
+    const routeConfig = request.routeOptions.config.auth;
     const optional = routeConfig?.optional ?? !routeConfig?.require;
 
     try {
@@ -90,6 +90,8 @@ const plugin: FastifyPluginAsync<UrAuthPluginOptions> = async (
     }
     throw error;
   });
+
+  return Promise.resolve();
 };
 
 export const urAuthPlugin = fp(plugin, {

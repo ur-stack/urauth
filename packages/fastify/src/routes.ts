@@ -5,7 +5,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import fp from "fastify-plugin";
 import type { Auth } from "@urauth/node";
-import { AuthError } from "@urauth/ts";
 import "./types";
 
 export interface UrAuthRoutesOptions {
@@ -13,7 +12,7 @@ export interface UrAuthRoutesOptions {
   prefix?: string;
 }
 
-const routesPlugin: FastifyPluginAsync<UrAuthRoutesOptions> = async (app, opts) => {
+const routesPlugin: FastifyPluginAsync<UrAuthRoutesOptions> = (app, opts): Promise<void> => {
   const { auth } = opts;
 
   // POST /login
@@ -40,9 +39,9 @@ const routesPlugin: FastifyPluginAsync<UrAuthRoutesOptions> = async (app, opts) 
 
   // POST /logout
   app.post("/logout", async (request) => {
-    if (request.auth?.token) {
+    if (request.auth.token) {
       const authHeader = request.headers.authorization;
-      if (authHeader) {
+      if (authHeader !== undefined && authHeader.length > 0) {
         const rawToken = authHeader.replace(/^Bearer\s+/i, "");
         await auth.lifecycle.revoke(rawToken);
       }
@@ -52,11 +51,13 @@ const routesPlugin: FastifyPluginAsync<UrAuthRoutesOptions> = async (app, opts) 
 
   // POST /logout-all
   app.post("/logout-all", async (request) => {
-    if (request.auth?.token) {
+    if (request.auth.token) {
       await auth.lifecycle.revokeAll(request.auth.token.sub);
     }
     return { ok: true };
   });
+
+  return Promise.resolve();
 };
 
 export const urAuthRoutes = fp(routesPlugin, {

@@ -10,8 +10,8 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@urauth/node": "workspace:*",
-    "@urauth/ts": "workspace:*",
+    "@urauth/node": "*",
+    "@urauth/ts": "*",
     "fastify-plugin": "^5.0.0"
   },
   "peerDependencies": {
@@ -24,6 +24,10 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "files": ["dist"],
+  "publishConfig": {
+    "access": "public"
   },
   "license": "MIT"
 }
