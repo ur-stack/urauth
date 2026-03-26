@@ -10,7 +10,7 @@
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-Instead, use [GitHub Security Advisories](https://github.com/grandmagus/urauth/security/advisories/new) to report vulnerabilities privately.
+Instead, use [GitHub Security Advisories](https://github.com/ur-stack/urauth/security/advisories/new) to report vulnerabilities privately.
 
 Include as much of the following as possible:
 
@@ -77,4 +77,16 @@ urauth does **not** protect against:
 - Rate limiting (opt-in, not enforced by default)
 - DDoS attacks
 
-See the [threat model](packages/py/docs/best-practices/threat-model.md) for full details.
+See the [threat model](./THREAT_MODEL.md) for full details.
+
+## Security Testing
+
+This project maintains a layered security testing approach:
+
+- **Negative unit tests**: Verify all forbidden outcomes are rejected
+- **Fuzz testing**: Hypothesis (Python) and fast-check (TypeScript) for parser robustness
+- **Property-based tests**: Invariants like "any mutation of a signed token fails verification"
+- **Configuration misuse tests**: Ensure unsafe configs are rejected
+- **Static analysis**: Bandit (Python), basedpyright, ruff
+- **Dependency scanning**: pip-audit, npm audit
+- **Secret scanning**: detect-secrets in CI
