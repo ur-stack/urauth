@@ -7,7 +7,8 @@
 
 import type { TokenPayload } from "./types";
 import type { Requirement } from "./authz/requirement";
-import { Permission, Role, Relation, RelationTuple, matchPermission } from "./authz/primitives";
+import type { Relation, RelationTuple} from "./authz/primitives";
+import { Permission, Role, matchPermission } from "./authz/primitives";
 import type { TenantPath } from "./tenant/hierarchy";
 
 export interface AuthContextOptions {
@@ -38,11 +39,11 @@ export class AuthContext {
     this.roles = opts.roles ?? [];
     this.permissions = opts.permissions ?? [];
     this.relations = opts.relations ?? [];
-    this.scopes = opts.scopes ?? new Map();
+    this.scopes = opts.scopes ?? new Map<string, Permission[]>();
     this.token = opts.token;
     this.request = opts.request;
     this.tenant = opts.tenant;
-    this._authenticated = opts.authenticated ?? true;
+    this._authenticated = opts.authenticated ?? (opts.user !== null && opts.user !== undefined);
   }
 
   /** Create an anonymous (unauthenticated) context. */
@@ -55,7 +56,7 @@ export class AuthContext {
   }
 
   isAuthenticated(): boolean {
-    return this._authenticated && this.user != null;
+    return this._authenticated && this.user !== null && this.user !== undefined;
   }
 
   /** Check if the context holds a permission (supports wildcards). Comparison is semantic — separator-agnostic. */
@@ -66,12 +67,12 @@ export class AuthContext {
 
   /** Check if the context holds a specific role. */
   hasRole(role: Role | string): boolean {
-    const name = role instanceof Role ? role.name : String(role);
+    const name = role instanceof Role ? role.name : role;
     return this.roles.some((r) => r.name === name);
   }
 
   /** Check if the context holds any of the given roles. */
-  hasAnyRole(...roles: Array<Role | string>): boolean {
+  hasAnyRole(...roles: (Role | string)[]): boolean {
     return roles.some((r) => this.hasRole(r));
   }
 

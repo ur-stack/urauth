@@ -24,7 +24,7 @@ export interface AsyncPermissionChecker {
  * - Resource wildcard: "user:*" grants all actions on "user"
  */
 export class StringChecker implements AsyncPermissionChecker {
-  async hasPermission(
+  hasPermission(
     ctx: AuthContext,
     resource: string,
     action: string,
@@ -33,13 +33,13 @@ export class StringChecker implements AsyncPermissionChecker {
     const required = new Permission(resource, action);
 
     let perms: Permission[];
-    if (options?.scope != null && ctx.scopes.has(options.scope)) {
-      perms = ctx.scopes.get(options.scope)!;
+    if (options?.scope !== undefined && ctx.scopes.has(options.scope)) {
+      perms = ctx.scopes.get(options.scope) ?? [];
     } else {
       perms = ctx.permissions;
     }
 
-    return perms.some((p) => matchPermission(p, required));
+    return Promise.resolve(perms.some((p) => matchPermission(p, required)));
   }
 }
 
@@ -56,7 +56,7 @@ export class RoleExpandingChecker implements AsyncPermissionChecker {
     hierarchy?: Map<string, string[]>;
   }) {
     this.rolePermissions = options.rolePermissions;
-    this.hierarchy = options.hierarchy ?? new Map();
+    this.hierarchy = options.hierarchy ?? new Map<string, string[]>();
     this.buildExpansion();
   }
 
@@ -66,13 +66,19 @@ export class RoleExpandingChecker implements AsyncPermissionChecker {
     }
   }
 
-  private expand(role: string): Set<string> {
+  private expand(role: string, visiting = new Set<string>()): Set<string> {
     const cached = this.expanded.get(role);
     if (cached) return cached;
 
+    if (visiting.has(role)) {
+      // Circular dependency detected — break the cycle
+      return new Set<string>([role]);
+    }
+    visiting.add(role);
+
     const result = new Set<string>([role]);
     for (const child of this.hierarchy.get(role) ?? []) {
-      for (const r of this.expand(child)) {
+      for (const r of this.expand(child, visiting)) {
         result.add(r);
       }
     }
@@ -104,7 +110,7 @@ export class RoleExpandingChecker implements AsyncPermissionChecker {
     return result;
   }
 
-  async hasPermission(
+  hasPermission(
     ctx: AuthContext,
     resource: string,
     action: string,
@@ -120,8 +126,8 @@ export class RoleExpandingChecker implements AsyncPermissionChecker {
 
     const required = new Permission(resource, action);
     for (const permStr of perms) {
-      if (matchPermission(new Permission(permStr), required)) return true;
+      if (matchPermission(new Permission(permStr), required)) return Promise.resolve(true);
     }
-    return false;
+    return Promise.resolve(false);
   }
 }

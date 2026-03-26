@@ -37,9 +37,9 @@ export function matchPermission(
 ): boolean {
   const p = typeof pattern === "string" ? new Permission(pattern) : pattern;
   const t = typeof target === "string" ? new Permission(target) : target;
-  if (String(p.resource) === "*") return true;
-  if (String(p.resource) !== String(t.resource)) return false;
-  return String(p.action) === "*" || String(p.action) === String(t.action);
+  if (p.resource === "*") return true;
+  if (p.resource !== t.resource) return false;
+  return p.action === "*" || p.action === t.action;
 }
 
 // ── Primitives ──────────────────────────────────────────────────
@@ -93,10 +93,10 @@ export class Permission extends Requirement {
               `Use one of: @ # . : | \\ / $ &`,
           );
         }
-        const parts = value.split(m[0]!);
-        this.resource = parts[0]! as Resource;
-        this.action = parts.slice(1).join(m[0]!) as Action;
-        this._sep = m[0]!;
+        const parts = value.split(m[0]);
+        this.resource = parts[0] as Resource;
+        this.action = parts.slice(1).join(m[0]) as Action;
+        this._sep = m[0];
       }
     }
   }
@@ -114,16 +114,16 @@ export class Permission extends Requirement {
       try {
         const p = new Permission(other);
         return (
-          String(this.resource) === String(p.resource) &&
-          String(this.action) === String(p.action)
+          this.resource === p.resource &&
+          this.action === p.action
         );
       } catch {
         return false;
       }
     }
     return (
-      String(this.resource) === String(other.resource) &&
-      String(this.action) === String(other.action)
+      this.resource === other.resource &&
+      this.action === other.action
     );
   }
 }
@@ -182,11 +182,11 @@ export class Relation extends Requirement {
   ) {
     super();
     if (name !== undefined) {
-      this.resource = String(resource) as Resource;
-      this.name = String(name);
+      this.resource = (resource as string) as Resource;
+      this.name = name;
       this._sep = options?.separator ?? "#";
     } else if (options?.parser) {
-      const [r, n] = options.parser(String(resource));
+      const [r, n] = options.parser(resource as string);
       this.resource = r as Resource;
       this.name = n;
       this._sep = options.separator ?? "#";
@@ -199,10 +199,10 @@ export class Relation extends Requirement {
             `Use one of: @ # . : | \\ / $ &`,
         );
       }
-      const parts = value.split(m[0]!);
-      this.resource = parts[0]! as Resource;
-      this.name = parts.slice(1).join(m[0]!);
-      this._sep = m[0]!;
+      const parts = value.split(m[0]);
+      this.resource = parts[0] as Resource;
+      this.name = parts.slice(1).join(m[0]);
+      this._sep = m[0];
     }
   }
 
@@ -217,7 +217,7 @@ export class Relation extends Requirement {
 
   evaluate(ctx: AuthContext): boolean {
     return ctx.relations.some(
-      (rt) => rt.relation.name === this.name && String(rt.relation.resource) === String(this.resource),
+      (rt) => rt.relation.name === this.name && rt.relation.resource === this.resource,
     );
   }
 
@@ -229,12 +229,12 @@ export class Relation extends Requirement {
     if (typeof other === "string") {
       try {
         const r = new Relation(other);
-        return this.name === r.name && String(this.resource) === String(r.resource);
+        return this.name === r.name && this.resource === r.resource;
       } catch {
         return false;
       }
     }
-    return this.name === other.name && String(this.resource) === String(other.resource);
+    return this.name === other.name && this.resource === other.resource;
   }
 }
 
@@ -279,7 +279,7 @@ export class RelationTuple {
       throw new Error(`Invalid relation tuple: "${s}"`);
     }
     const objId = rest.slice(0, m.index);
-    const relName = rest.slice(m.index! + m[0]!.length);
+    const relName = rest.slice(m.index + m[0].length);
     return new RelationTuple(
       new Relation(objType, relName),
       objId,

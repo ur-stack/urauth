@@ -11,10 +11,10 @@ export interface TenantStore {
   getTenant(tenantId: string): Promise<Record<string, unknown> | undefined>;
 
   /** Get all ancestors of a tenant, ordered root-first. */
-  getAncestors(tenantId: string): Promise<Array<Record<string, unknown>>>;
+  getAncestors(tenantId: string): Promise<Record<string, unknown>[]>;
 
   /** Get immediate children of a tenant. */
-  getChildren(tenantId: string): Promise<Array<Record<string, unknown>>>;
+  getChildren(tenantId: string): Promise<Record<string, unknown>[]>;
 
   /** Build a full TenantPath from root to the given tenant. */
   resolvePath(tenantId: string): Promise<TenantPath | undefined>;

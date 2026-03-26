@@ -52,12 +52,12 @@ export class TenantPath {
 
   /** The most specific tenant ID (last node). Backward-compatible with flat tenant_id. */
   get leafId(): string {
-    return this.nodes[this.nodes.length - 1]!.id;
+    return this.nodes[this.nodes.length - 1].id;
   }
 
   /** The level name of the most specific tenant. */
   get leafLevel(): string {
-    return this.nodes[this.nodes.length - 1]!.level;
+    return this.nodes[this.nodes.length - 1].level;
   }
 
   /** Get the tenant ID at a specific hierarchy level, or undefined if absent. */
@@ -72,7 +72,7 @@ export class TenantPath {
   contains(other: TenantPath): boolean {
     if (this.nodes.length > other.nodes.length) return false;
     return this.nodes.every(
-      (s, i) => s.id === other.nodes[i]!.id && s.level === other.nodes[i]!.level,
+      (s, i) => s.id === other.nodes[i].id && s.level === other.nodes[i].level,
     );
   }
 
@@ -99,7 +99,7 @@ export class TenantPath {
   }
 
   /** Wrap a flat tenant_id into a single-node path (backward compat). */
-  static fromFlat(tenantId: string, level: string = "tenant"): TenantPath {
+  static fromFlat(tenantId: string, level = "tenant"): TenantPath {
     return new TenantPath([new TenantNode(tenantId, level)]);
   }
 
@@ -130,7 +130,7 @@ export class TenantHierarchy {
   private _levels: readonly TenantLevel[];
   private _byName: Map<string, TenantLevel>;
 
-  constructor(levels: Array<string | TenantLevel>) {
+  constructor(levels: (string | TenantLevel)[]) {
     const built: TenantLevel[] = levels.map((level, i) =>
       typeof level === "string" ? new TenantLevel(level, i) : level,
     );
@@ -167,12 +167,12 @@ export class TenantHierarchy {
 
   /** The root (top-most) level. */
   get root(): TenantLevel {
-    return this._levels[0]!;
+    return this._levels[0];
   }
 
   /** The leaf (bottom-most) level. */
   get leaf(): TenantLevel {
-    return this._levels[this._levels.length - 1]!;
+    return this._levels[this._levels.length - 1];
   }
 
   get length(): number {

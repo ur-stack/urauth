@@ -22,22 +22,24 @@ export interface RoleCache {
 export class MemoryRoleCache implements RoleCache {
   private store = new Map<string, { value: Record<string, unknown>; expiresAt: number }>();
 
-  async get(key: string): Promise<Record<string, unknown> | undefined> {
+  get(key: string): Promise<Record<string, unknown> | undefined> {
     const entry = this.store.get(key);
-    if (!entry) return undefined;
+    if (!entry) return Promise.resolve(undefined);
     if (performance.now() > entry.expiresAt) {
       this.store.delete(key);
-      return undefined;
+      return Promise.resolve(undefined);
     }
-    return entry.value;
+    return Promise.resolve(entry.value);
   }
 
-  async set(key: string, value: Record<string, unknown>, ttl: number): Promise<void> {
+  set(key: string, value: Record<string, unknown>, ttl: number): Promise<void> {
     this.store.set(key, { value, expiresAt: performance.now() + ttl * 1000 });
+    return Promise.resolve();
   }
 
-  async invalidate(key: string): Promise<void> {
+  invalidate(key: string): Promise<void> {
     this.store.delete(key);
+    return Promise.resolve();
   }
 }
 
@@ -61,7 +63,7 @@ export class RoleRegistry {
   /** Register a static role. */
   role(
     name: string,
-    permissions: Array<string | Permission>,
+    permissions: (string | Permission)[],
     options?: { inherits?: string[] },
   ): void {
     this.staticRoles.set(name, new Set(permissions.map(String)));
@@ -126,14 +128,14 @@ export class RoleRegistry {
         const rolesObj: Record<string, string[]> = {};
         for (const [k, v] of roles) rolesObj[k] = [...v];
         const hierObj: Record<string, string[]> = {};
-        for (const [k, v] of (hierarchy ?? new Map())) hierObj[k] = v;
+        for (const [k, v] of hierarchy) hierObj[k] = v;
         await this.cache.set(RoleRegistry.CACHE_KEY_ROLES, rolesObj, this.cacheTtl);
         await this.cache.set(RoleRegistry.CACHE_KEY_HIERARCHY, hierObj, this.cacheTtl);
       }
     }
 
     this.loadedRoles = roles;
-    this.loadedHierarchy = hierarchy ?? new Map();
+    this.loadedHierarchy = hierarchy ?? new Map<string, string[]>();
   }
 
   /** Invalidate cache and re-load from the loader. */

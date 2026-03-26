@@ -24,7 +24,7 @@ export class RoleTemplate {
   readonly permissions: string[];
   readonly description: string;
 
-  constructor(name: string, permissions: string[] = [], description: string = "") {
+  constructor(name: string, permissions: string[] = [], description = "") {
     this.name = name;
     this.permissions = permissions;
     this.description = description;

@@ -33,7 +33,10 @@ export function canAccess(
     actionStr = resourceOrPermission.action;
   } else {
     resource = resourceOrPermission;
-    actionStr = action!;
+    if (action === undefined) {
+      throw new Error("action is required when passing resource as string");
+    }
+    actionStr = action;
   }
 
   if (options?.checker) {
@@ -41,8 +44,8 @@ export function canAccess(
   }
 
   // Handle scope
-  if (options?.scope && ctx.scopes.has(options.scope)) {
-    const scopePerms = ctx.scopes.get(options.scope)!;
+  if (options?.scope !== undefined && options.scope !== "" && ctx.scopes.has(options.scope)) {
+    const scopePerms = ctx.scopes.get(options.scope) ?? [];
     const required = new Permission(resource, actionStr);
     return scopePerms.some((p) => matchPermission(p, required));
   }
