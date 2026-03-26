@@ -42,6 +42,14 @@ pnpm add @urauth/vue
 pnpm add @urauth/nuxt
 ```
 
+```bash [React]
+pnpm add @urauth/react
+```
+
+```bash [Next.js]
+pnpm add @urauth/next
+```
+
 :::
 
 ## Quick Start — Python

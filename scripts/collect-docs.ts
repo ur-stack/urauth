@@ -27,6 +27,8 @@ const packages: PackageConfig[] = [
   { name: "node", label: "Node.js", docsDir: "packages/node/docs" },
   { name: "vue", label: "Vue", docsDir: "packages/vue/docs" },
   { name: "nuxt", label: "Nuxt", docsDir: "packages/nuxt/docs" },
+  { name: "react", label: "React", docsDir: "packages/react/docs" },
+  { name: "next", label: "Next.js", docsDir: "packages/next/docs" },
   { name: "hono", label: "Hono", docsDir: "packages/hono/docs" },
   { name: "express", label: "Express", docsDir: "packages/express/docs" },
   { name: "fastify", label: "Fastify", docsDir: "packages/fastify/docs" },

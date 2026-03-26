@@ -65,6 +65,8 @@ This package is the foundation for all TypeScript packages in the monorepo:
   ├── @urauth/node    (adds JWT creation, token lifecycle, stores)
   ├── @urauth/vue     (Vue composables for auth state)
   ├── @urauth/nuxt    (Nuxt module with auto-imports)
+  ├── @urauth/react   (React hooks for auth state)
+  ├── @urauth/next    (Next.js provider with state management)
   ├── @urauth/hono    (Hono middleware)
   ├── @urauth/express (Express middleware)
   ├── @urauth/fastify (Fastify plugin)

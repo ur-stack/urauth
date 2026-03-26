@@ -29,6 +29,8 @@ export default defineConfig({
             items: [
               { text: "Vue", link: "/packages/vue/" },
               { text: "Nuxt", link: "/packages/nuxt/" },
+              { text: "React", link: "/packages/react/" },
+              { text: "Next.js", link: "/packages/next/" },
             ],
           },
         ],

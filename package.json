@@ -6,6 +6,8 @@
     "packages/node",
     "packages/vue",
     "packages/nuxt",
+    "packages/react",
+    "packages/next",
     "packages/express",
     "packages/fastify",
     "packages/h3",
@@ -16,8 +18,8 @@
     "docs:dev": "bun run docs:collect && vitepress dev docs",
     "docs:build": "bun run docs:collect && vitepress build docs",
     "docs:preview": "vitepress preview docs",
-    "lint": "eslint packages/ts/src/ packages/node/src/ packages/vue/src/ packages/nuxt/src/ packages/express/src/ packages/fastify/src/ packages/h3/src/ packages/hono/src/",
-    "lint:fix": "eslint --fix packages/ts/src/ packages/node/src/ packages/vue/src/ packages/nuxt/src/ packages/express/src/ packages/fastify/src/ packages/h3/src/ packages/hono/src/"
+    "lint": "eslint packages/ts/src/ packages/node/src/ packages/vue/src/ packages/nuxt/src/ packages/react/src/ packages/next/src/ packages/express/src/ packages/fastify/src/ packages/h3/src/ packages/hono/src/",
+    "lint:fix": "eslint --fix packages/ts/src/ packages/node/src/ packages/vue/src/ packages/nuxt/src/ packages/react/src/ packages/next/src/ packages/express/src/ packages/fastify/src/ packages/h3/src/ packages/hono/src/"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
