@@ -40,14 +40,15 @@ export function createOnRequest(
     let rawToken: string | null;
 
     switch (transport) {
+      case "bearer":
+        rawToken = extractToken(event);
+        break;
       case "cookie":
         rawToken = extractTokenFromCookie(event, cookieName);
         break;
       case "hybrid":
         rawToken = extractTokenHybrid(event, cookieName);
         break;
-      default:
-        rawToken = extractToken(event);
     }
 
     try {

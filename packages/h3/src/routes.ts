@@ -5,7 +5,6 @@
 import { createRouter, defineEventHandler, readBody, getHeader } from "h3";
 import type { Router } from "h3";
 import type { Auth } from "@urauth/node";
-import { AuthError } from "@urauth/ts";
 import "./types";
 
 /**
@@ -44,9 +43,9 @@ export function authRoutes(auth: Auth): Router {
 
   // POST /logout
   router.post("/logout", defineEventHandler(async (event) => {
-    if (event.context.auth?.token) {
+    if (event.context.auth.token) {
       const authHeader = getHeader(event, "Authorization");
-      if (authHeader) {
+      if (authHeader !== undefined && authHeader.length > 0) {
         const rawToken = authHeader.replace(/^Bearer\s+/i, "");
         await auth.lifecycle.revoke(rawToken);
       }
@@ -56,7 +55,7 @@ export function authRoutes(auth: Auth): Router {
 
   // POST /logout-all
   router.post("/logout-all", defineEventHandler(async (event) => {
-    if (event.context.auth?.token) {
+    if (event.context.auth.token) {
       await auth.lifecycle.revokeAll(event.context.auth.token.sub);
     }
     return { ok: true };

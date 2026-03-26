@@ -66,7 +66,7 @@ export interface NitroPluginOptions {
  * export default createUrAuthNitroPlugin({ auth, routes: { prefix: "/api/auth" } });
  * ```
  */
-export function createUrAuthNitroPlugin(opts: NitroPluginOptions) {
+export function createUrAuthNitroPlugin(opts: NitroPluginOptions): { onRequest: ReturnType<typeof createOnRequest>; auth: Auth; routes: ReturnType<typeof authRoutes> | undefined } {
   const { auth, transport, cookieName } = opts;
   const onRequest = createOnRequest(auth, {
     optional: true,
