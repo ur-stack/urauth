@@ -25,25 +25,27 @@ export class MemoryTokenStore implements TokenStore {
     this.strict = opts?.strict ?? true;
   }
 
-  async isRevoked(jti: string): Promise<boolean> {
+  isRevoked(jti: string): Promise<boolean> {
     const rec = this.tokens.get(jti);
-    if (!rec) return this.strict;
-    return rec.revoked;
+    if (!rec) return Promise.resolve(this.strict);
+    return Promise.resolve(rec.revoked);
   }
 
-  async revoke(jti: string, _expiresAt: number): Promise<void> {
+  revoke(jti: string, _expiresAt: number): Promise<void> {
     const rec = this.tokens.get(jti);
     if (rec) rec.revoked = true;
+    return Promise.resolve();
   }
 
-  async revokeAllForUser(userId: string): Promise<void> {
+  revokeAllForUser(userId: string): Promise<void> {
     for (const jti of this.userTokens.get(userId) ?? []) {
       const rec = this.tokens.get(jti);
       if (rec) rec.revoked = true;
     }
+    return Promise.resolve();
   }
 
-  async addToken(
+  addToken(
     jti: string,
     userId: string,
     tokenType: string,
@@ -64,16 +66,18 @@ export class MemoryTokenStore implements TokenStore {
       this.userTokens.set(userId, set);
     }
     set.add(jti);
+    return Promise.resolve();
   }
 
-  async getFamilyId(jti: string): Promise<string | undefined> {
-    return this.tokens.get(jti)?.familyId;
+  getFamilyId(jti: string): Promise<string | undefined> {
+    return Promise.resolve(this.tokens.get(jti)?.familyId);
   }
 
-  async revokeFamily(familyId: string): Promise<void> {
+  revokeFamily(familyId: string): Promise<void> {
     for (const rec of this.tokens.values()) {
       if (rec.familyId === familyId) rec.revoked = true;
     }
+    return Promise.resolve();
   }
 }
 
@@ -82,7 +86,7 @@ export class MemorySessionStore implements SessionStore {
   private sessions = new Map<string, SessionData & { rawUserId: string }>();
   private userSessions = new Map<string, Set<string>>();
 
-  async create(
+  create(
     sessionId: string,
     userId: string,
     data: Record<string, unknown>,
@@ -100,30 +104,33 @@ export class MemorySessionStore implements SessionStore {
       this.userSessions.set(userId, set);
     }
     set.add(sessionId);
+    return Promise.resolve();
   }
 
-  async get(sessionId: string): Promise<SessionData | undefined> {
+  get(sessionId: string): Promise<SessionData | undefined> {
     const session = this.sessions.get(sessionId);
-    if (!session) return undefined;
+    if (!session) return Promise.resolve(undefined);
     if (Date.now() / 1000 > session.expiresAt) {
       this.sessions.delete(sessionId);
-      return undefined;
+      return Promise.resolve(undefined);
     }
-    return { userId: session.userId, data: session.data, expiresAt: session.expiresAt };
+    return Promise.resolve({ userId: session.userId, data: session.data, expiresAt: session.expiresAt });
   }
 
-  async delete(sessionId: string): Promise<void> {
+  delete(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (session) {
       this.sessions.delete(sessionId);
       this.userSessions.get(session.rawUserId)?.delete(sessionId);
     }
+    return Promise.resolve();
   }
 
-  async deleteAllForUser(userId: string): Promise<void> {
+  deleteAllForUser(userId: string): Promise<void> {
     for (const sid of this.userSessions.get(userId) ?? []) {
       this.sessions.delete(sid);
     }
     this.userSessions.delete(userId);
+    return Promise.resolve();
   }
 }

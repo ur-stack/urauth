@@ -2,7 +2,7 @@ import type { TokenStore } from "../stores/types";
 import type { AuthConfig } from "../config";
 import type { TokenPair } from "@urauth/ts";
 import { TokenRevokedError } from "@urauth/ts";
-import { TokenService } from "./jwt";
+import type { TokenService } from "./jwt";
 
 /** Handles refresh-token rotation with reuse detection. */
 export class RefreshService {
@@ -22,13 +22,16 @@ export class RefreshService {
    */
   async rotate(rawRefreshToken: string): Promise<TokenPair> {
     const claims = await this.tokens.validateRefreshToken(rawRefreshToken);
-    const jti = claims.jti as string;
-    const userId = claims.sub as string;
+    const jti = claims.jti;
+    const userId = claims.sub;
+    if (typeof jti !== "string" || !jti || typeof userId !== "string" || !userId) {
+      throw new TokenRevokedError("Refresh token missing required claims (jti, sub)");
+    }
 
     // Reuse detection: if already revoked, someone replayed a stolen token
     if (await this.store.isRevoked(jti)) {
       const familyId = await this.store.getFamilyId(jti);
-      if (familyId) {
+      if (familyId !== undefined) {
         await this.store.revokeFamily(familyId);
       } else {
         await this.store.revokeAllForUser(userId);

@@ -48,16 +48,22 @@ interface Argon2Like {
   verify(hash: string, password: string): Promise<boolean>;
 }
 
-/* eslint-disable @typescript-eslint/no-require-imports */
+function extractDefault(mod: Record<string, unknown>): Record<string, unknown> {
+  if ("default" in mod && mod.default !== null && mod.default !== undefined) {
+    return mod.default as Record<string, unknown>;
+  }
+  return mod;
+}
+
 async function importBcrypt(): Promise<BcryptLike> {
   try {
-    // Dynamic require for optional peer dependency
-    const mod = await (Function('return import("bcrypt")')() as Promise<Record<string, unknown>>);
-    return mod.default ? mod.default as unknown as BcryptLike : mod as unknown as BcryptLike;
+    // @ts-expect-error -- optional peer dependency, resolved at runtime
+    const mod = await import("bcrypt") as Record<string, unknown>;
+    return extractDefault(mod) as unknown as BcryptLike;
   } catch {
     try {
-      const mod = await (Function('return import("bcryptjs")')() as Promise<Record<string, unknown>>);
-      return mod.default ? mod.default as unknown as BcryptLike : mod as unknown as BcryptLike;
+      const mod = await import("bcryptjs") as Record<string, unknown>;
+      return extractDefault(mod) as unknown as BcryptLike;
     } catch {
       throw new Error(
         'No bcrypt library found. Install "bcrypt" or "bcryptjs": npm install bcrypt',
@@ -68,8 +74,9 @@ async function importBcrypt(): Promise<BcryptLike> {
 
 async function importArgon2(): Promise<Argon2Like> {
   try {
-    const mod = await (Function('return import("argon2")')() as Promise<Record<string, unknown>>);
-    return mod.default ? mod.default as unknown as Argon2Like : mod as unknown as Argon2Like;
+    // @ts-expect-error -- optional peer dependency, resolved at runtime
+    const mod = await import("argon2") as Record<string, unknown>;
+    return extractDefault(mod) as unknown as Argon2Like;
   } catch {
     throw new Error(
       'argon2 not found. Install it: npm install argon2',

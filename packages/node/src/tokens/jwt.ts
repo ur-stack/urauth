@@ -81,7 +81,7 @@ export class TokenService {
     tokenType: string,
     ttl: number,
   ): Record<string, unknown> {
-    const uid = String(userId).trim();
+    const uid = userId.trim();
     if (!uid) {
       throw new Error("userId must be a non-empty string");
     }
@@ -93,8 +93,8 @@ export class TokenService {
       exp: now + ttl,
       type: tokenType,
     };
-    if (this.config.issuer) claims.iss = this.config.issuer;
-    if (this.config.audience) claims.aud = this.config.audience;
+    if (this.config.issuer !== undefined) claims.iss = this.config.issuer;
+    if (this.config.audience !== undefined) claims.aud = this.config.audience;
     return claims;
   }
 
@@ -110,18 +110,18 @@ export class TokenService {
     opts?: CreateAccessTokenOptions,
   ): Promise<string> {
     const claims = this.baseClaims(userId, "access", this.accessTtl);
-    if (opts?.scopes) claims.scopes = opts.scopes;
-    if (opts?.roles) claims.roles = opts.roles;
-    if (opts?.tenantPath) {
+    if (opts?.scopes !== undefined) claims.scopes = opts.scopes;
+    if (opts?.roles !== undefined) claims.roles = opts.roles;
+    if (opts?.tenantPath !== undefined) {
       claims.tenant_path = opts.tenantPath;
       // Backward compat: also set flat tenant_id to last value
       const values = Object.values(opts.tenantPath);
       if (values.length > 0) claims.tenant_id = values[values.length - 1];
-    } else if (opts?.tenantId) {
+    } else if (opts?.tenantId !== undefined) {
       claims.tenant_id = opts.tenantId;
     }
-    if (opts?.fresh) claims.fresh = true;
-    if (opts?.extraClaims) {
+    if (opts?.fresh === true) claims.fresh = true;
+    if (opts?.extraClaims !== undefined) {
       const reserved = new Set(["sub", "jti", "iat", "exp", "iss", "aud", "type"]);
       for (const [key, value] of Object.entries(opts.extraClaims)) {
         if (!reserved.has(key)) {
@@ -138,7 +138,7 @@ export class TokenService {
     opts?: CreateRefreshTokenOptions,
   ): Promise<string> {
     const claims = this.baseClaims(userId, "refresh", this.refreshTtl);
-    if (opts?.familyId) claims.family_id = opts.familyId;
+    if (opts?.familyId !== undefined) claims.family_id = opts.familyId;
     return this.sign(claims);
   }
 

@@ -67,8 +67,8 @@ function parseWindow(window: string): number {
   const match = /^(\d+)(ms|s|m|h|d)$/.exec(window);
   if (!match) throw new Error(`Invalid window format: "${window}". Use e.g. "15m", "1h", "60s".`);
 
-  const value = parseInt(match[1]!, 10);
-  const unit = match[2]!;
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
   const multipliers: Record<string, number> = {
     ms: 1,
     s: 1000,
@@ -76,5 +76,5 @@ function parseWindow(window: string): number {
     h: 3_600_000,
     d: 86_400_000,
   };
-  return value * multipliers[unit]!;
+  return value * multipliers[unit];
 }

@@ -60,7 +60,7 @@ export function validateConfig(config: AuthConfig): void {
   const algorithm = config.algorithm ?? defaultConfig.algorithm ?? "HS256";
 
   // Reject empty / whitespace-only keys unconditionally
-  if (!config.secretKey || !config.secretKey.trim()) {
+  if (config.secretKey.trim() === "") {
     throw new Error("urauth: secretKey must not be empty or whitespace-only.");
   }
 
@@ -80,7 +80,7 @@ export function validateConfig(config: AuthConfig): void {
   }
 
   // Production rejects allowInsecureKey
-  if (env === "production" && config.allowInsecureKey) {
+  if (env === "production" && config.allowInsecureKey === true) {
     throw new Error(
       "urauth: allowInsecureKey cannot be true in production.",
     );
@@ -90,7 +90,7 @@ export function validateConfig(config: AuthConfig): void {
   if (HMAC_ALGORITHMS.has(algorithm) && config.secretKey.length < MIN_HMAC_KEY_LENGTH) {
     if (!allowInsecure) {
       throw new Error(
-        `urauth: secretKey must be at least ${MIN_HMAC_KEY_LENGTH} characters for ${algorithm}. ` +
+        `urauth: secretKey must be at least ${String(MIN_HMAC_KEY_LENGTH)} characters for ${algorithm}. ` +
         "Set allowInsecureKey: true for development.",
       );
     }

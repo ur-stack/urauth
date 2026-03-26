@@ -5,12 +5,12 @@
  * Framework adapters wrap these into their middleware format.
  */
 
-import {
+import type {
   AuthContext,
+  Requirement} from "@urauth/ts";
+import {
   Permission,
   Role,
-  Relation,
-  Requirement,
   ForbiddenError,
   UnauthorizedError,
 } from "@urauth/ts";
@@ -23,7 +23,7 @@ export function requirePermission(resource: string, action: string): GuardCheck 
   return (ctx) => {
     if (!ctx.isAuthenticated()) throw new UnauthorizedError();
     if (!ctx.hasPermission(perm)) {
-      throw new ForbiddenError(`Missing permission: ${perm}`);
+      throw new ForbiddenError(`Missing permission: ${perm.toString()}`);
     }
   };
 }
@@ -77,7 +77,7 @@ export function requireTenant(opts: { level: string }): GuardCheck {
   return (ctx) => {
     if (!ctx.isAuthenticated()) throw new UnauthorizedError();
     const id = ctx.atLevel(opts.level);
-    if (!id) {
+    if (id === undefined || id === "") {
       throw new ForbiddenError(`Not in tenant level: ${opts.level}`);
     }
   };

@@ -10,15 +10,21 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@urauth/ts": "workspace:*",
+    "@urauth/ts": "*",
     "jose": "^5.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.5.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "bcryptjs": "^3.0.3",
+    "fast-check": "^4.6.0",
+    "typescript": "^5.5.0"
   },
   "engines": {
     "node": ">=18"
+  },
+  "files": ["dist"],
+  "publishConfig": {
+    "access": "public"
   },
   "license": "MIT"
 }

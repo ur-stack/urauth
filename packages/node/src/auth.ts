@@ -9,13 +9,11 @@ import {
   AuthContext,
   Permission,
   Role,
-  Relation,
-  RelationTuple,
   TenantPath,
-  TenantNode,
   UnauthorizedError,
 } from "@urauth/ts";
-import type { TokenPayload } from "@urauth/ts";
+import type { TokenPayload ,
+  RelationTuple} from "@urauth/ts";
 import type { AuthConfig } from "./config";
 import { defaultConfig } from "./config";
 import type { TokenStore } from "./stores/types";
@@ -90,23 +88,22 @@ export class Auth<TUser = unknown> {
     rawToken: string | null | undefined,
     options?: { optional?: boolean },
   ): Promise<AuthContext> {
-    if (!rawToken) {
-      if (options?.optional) return AuthContext.anonymous();
+    if (rawToken === null || rawToken === undefined || rawToken === "") {
+      if (options?.optional === true) return AuthContext.anonymous();
       throw new UnauthorizedError();
     }
 
     try {
       const payload = await this.lifecycle.validate(rawToken);
-      return this.buildContextFromPayload(payload);
+      return await this.buildContextFromPayload(payload);
     } catch (err) {
-      if (options?.optional) return AuthContext.anonymous();
+      if (options?.optional === true) return AuthContext.anonymous();
       throw err;
     }
   }
 
   /** Build an AuthContext directly from a user object (for testing / internal). */
   async buildContextForUser(user: TUser): Promise<AuthContext> {
-    const userId = this.getUserId(user);
     const roles = await this.resolveRoles(user);
     const permissions = await this.resolvePermissions(user);
 
@@ -133,12 +130,11 @@ export class Auth<TUser = unknown> {
     const valid = await this.callbacks.verifyPassword(user, password);
     if (!valid) throw new UnauthorizedError("Invalid credentials");
 
-    const userId = this.getUserId(user);
+    const uid = this.getUserId(user);
     const roles = await this.resolveRoles(user);
-    const permissions = await this.resolvePermissions(user);
 
     const request: IssueRequest = {
-      userId,
+      userId: uid,
       roles,
       fresh: true,
     };
@@ -147,7 +143,7 @@ export class Auth<TUser = unknown> {
     if (this.callbacks.resolveTenantPath) {
       // Create a minimal payload for tenant resolution
       const tenantPath = await this.callbacks.resolveTenantPath(user, {} as TokenPayload);
-      if (tenantPath && Object.keys(tenantPath).length > 0) {
+      if (Object.keys(tenantPath).length > 0) {
         request.tenantPath = tenantPath;
       }
     }
@@ -187,9 +183,9 @@ export class Auth<TUser = unknown> {
 
     // Resolve tenant
     let tenant: TenantPath | undefined;
-    if (payload.tenant_path) {
+    if (payload.tenant_path !== undefined) {
       tenant = TenantPath.fromClaim(payload.tenant_path);
-    } else if (payload.tenant_id) {
+    } else if (payload.tenant_id !== undefined) {
       tenant = TenantPath.fromFlat(payload.tenant_id);
     }
 
