@@ -10,8 +10,8 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@urauth/node": "workspace:*",
-    "@urauth/ts": "workspace:*"
+    "@urauth/node": "*",
+    "@urauth/ts": "*"
   },
   "peerDependencies": {
     "express": ">=4.0.0"
@@ -24,6 +24,10 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "files": ["dist"],
+  "publishConfig": {
+    "access": "public"
   },
   "license": "MIT"
 }

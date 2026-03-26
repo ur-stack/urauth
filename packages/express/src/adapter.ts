@@ -13,7 +13,6 @@
 
 import type { RequestHandler, Router } from "express";
 import type { Auth } from "@urauth/node";
-import type { Requirement, AuthContext } from "@urauth/ts";
 import { createMiddleware, type MiddlewareOptions } from "./middleware";
 import { guard, protect } from "./guard";
 import { router } from "./router";

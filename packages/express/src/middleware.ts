@@ -37,14 +37,15 @@ export function createMiddleware(auth: Auth, options: MiddlewareOptions = {}): R
       let rawToken: string | null;
 
       switch (transport) {
+        case "bearer":
+          rawToken = extractToken(req);
+          break;
         case "cookie":
           rawToken = extractTokenFromCookie(req, cookieName);
           break;
         case "hybrid":
           rawToken = extractTokenHybrid(req, cookieName);
           break;
-        default:
-          rawToken = extractToken(req);
       }
 
       req.auth = await auth.buildContext(rawToken, { optional });

@@ -2,7 +2,7 @@
  * Auto-generated auth routes for Express.
  */
 
-import { Router, type RequestHandler } from "express";
+import { Router, type RequestHandler, type Request, type Response, type NextFunction } from "express";
 import type { Auth } from "@urauth/node";
 import "./types";
 
@@ -27,7 +27,7 @@ export interface AuthRouterOptions {
  */
 function createRouter(auth: Auth): Router {
   const r = Router();
-  r.use(((req: import("express").Request, res: import("express").Response, next: import("express").NextFunction) => {
+  r.use(((req: Request, res: Response, next: NextFunction) => {
     // Body parsing — Express requires json() middleware
     next();
   }) as RequestHandler);
@@ -70,9 +70,9 @@ function addPasswordRoutes(r: Router, auth: Auth): void {
   // POST /logout
   r.post("/logout", (async (req, res, next) => {
     try {
-      if (req.auth?.token) {
+      if (req.auth.token) {
         const authHeader = req.headers.authorization;
-        if (authHeader) {
+        if (authHeader !== undefined && authHeader.length > 0) {
           const rawToken = authHeader.replace(/^Bearer\s+/i, "");
           await auth.lifecycle.revoke(rawToken);
         }
@@ -86,7 +86,7 @@ function addPasswordRoutes(r: Router, auth: Auth): void {
   // POST /logout-all
   r.post("/logout-all", (async (req, res, next) => {
     try {
-      if (req.auth?.token) {
+      if (req.auth.token) {
         await auth.lifecycle.revokeAll(req.auth.token.sub);
       }
       res.json({ ok: true });

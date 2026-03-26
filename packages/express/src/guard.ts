@@ -5,8 +5,6 @@
 import type { RequestHandler } from "express";
 import {
   guard as guardFn,
-  requirePermission,
-  requireRole,
   requireAuth,
   requireTenant,
   policy as policyFn,
@@ -35,7 +33,7 @@ function wrapGuard(check: GuardCheck): RequestHandler {
  * app.get("/users", guard(Permission("user", "read")), handler);
  * ```
  */
-function guard(requirement: Requirement, options?: { resourceFrom?: string }): RequestHandler {
+function guard(requirement: Requirement, _options?: { resourceFrom?: string }): RequestHandler {
   return wrapGuard(guardFn(requirement));
 }
 
