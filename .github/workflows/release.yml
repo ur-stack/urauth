@@ -1,41 +1,136 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "urauth-py-v*"
+      - "@urauth/*-v*"
 
 permissions:
   contents: write
   id-token: write
 
 jobs:
-  publish:
+  # ── Python release ──────────────────────────────────────
+  release-py:
+    if: startsWith(github.ref_name, 'urauth-py-v')
     runs-on: ubuntu-latest
     environment: pypi
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+
+      - name: Install git-cliff
+        uses: kenji-miyake/setup-git-cliff@v2
+
       - name: Install dependencies
         run: uv sync --all-extras --frozen
         working-directory: packages/py
+
+      - name: Lint
+        run: uv run ruff check --fix src/ tests/
+        working-directory: packages/py
+
+      - name: Type check
+        run: uv run basedpyright src/
+        working-directory: packages/py
+
       - name: Run tests
         run: uv run pytest tests/ --cov --cov-fail-under=85 --ignore=tests/unit/contrib -q
         working-directory: packages/py
+
       - name: Build
         run: uv build
         working-directory: packages/py
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: packages/py/dist/
+
+      - name: Generate changelog
+        run: |
+          git cliff --config cliff.toml \
+            --include-path "packages/py/**" \
+            --tag-pattern "urauth-py-v.*" \
+            --latest \
+            --strip header \
+            > RELEASE_BODY.md
+
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
         with:
           path: packages/py/
           artifact-name: sbom.spdx.json
-      - name: Attach SBOM to release
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: RELEASE_BODY.md
           files: sbom.spdx.json
+
+  # ── npm release ─────────────────────────────────────────
+  release-npm:
+    if: startsWith(github.ref_name, '@urauth/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install git-cliff
+        uses: kenji-miyake/setup-git-cliff@v2
+
+      - name: Parse package info from tag
+        id: pkg
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          # Tag format: @urauth/<name>-v<version>
+          PKG_PART="${TAG#@urauth/}"
+          VERSION="${PKG_PART##*-v}"
+          NAME="${PKG_PART%-v*}"
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "scope=@urauth/${NAME}" >> "$GITHUB_OUTPUT"
+          echo "dir=packages/${NAME}" >> "$GITHUB_OUTPUT"
+          echo "tag_pattern=@urauth/${NAME}-v.*" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Build all packages
+        run: bun run --filter '*' build
+
+      - name: Run tests
+        run: bun test
+        working-directory: ${{ steps.pkg.outputs.dir }}
+
+      - name: Publish to npm
+        run: bunx npm publish --no-git-checks --access public
+        working-directory: ${{ steps.pkg.outputs.dir }}
+        env:
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Generate changelog
+        run: |
+          git cliff --config cliff.toml \
+            --include-path "${{ steps.pkg.outputs.dir }}/**" \
+            --tag-pattern "${{ steps.pkg.outputs.tag_pattern }}" \
+            --latest \
+            --strip header \
+            > RELEASE_BODY.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: RELEASE_BODY.md

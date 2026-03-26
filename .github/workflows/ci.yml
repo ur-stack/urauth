@@ -32,23 +32,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
       - name: ESLint
-        run: pnpm lint
-      - name: Type check @urauth/ts
-        run: npx tsc --noEmit
-        working-directory: packages/ts
-      - name: Type check @urauth/node
-        run: npx tsc --noEmit
-        working-directory: packages/node
+        run: bun run lint
+      - name: Type check (build all)
+        run: bun run --filter '*' build
 
   test-py:
     runs-on: ubuntu-latest
@@ -81,15 +71,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: pnpm
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
       - name: Test @urauth/ts
         run: bun test
         working-directory: packages/ts
