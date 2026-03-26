@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
+  lint-py:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
         with:
           enable-cache: true
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: uv sync --all-extras --frozen
         working-directory: packages/py
       - name: Lint
         run: make lint
@@ -28,7 +28,29 @@ jobs:
         run: make typecheck
         working-directory: packages/py
 
-  test:
+  lint-ts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: ESLint
+        run: pnpm lint
+      - name: Type check @urauth/ts
+        run: npx tsc --noEmit
+        working-directory: packages/ts
+      - name: Type check @urauth/node
+        run: npx tsc --noEmit
+        working-directory: packages/node
+
+  test-py:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -42,7 +64,7 @@ jobs:
       - name: Set Python version
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --all-extras --python ${{ matrix.python-version }}
+        run: uv sync --all-extras --frozen --python ${{ matrix.python-version }}
         working-directory: packages/py
       - name: Run tests with coverage
         run: uv run pytest tests/ --cov --cov-report=xml --cov-fail-under=85 --ignore=tests/unit/contrib -q
@@ -53,3 +75,24 @@ jobs:
         with:
           file: packages/py/coverage.xml
           fail_ci_if_error: false
+
+  test-ts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Test @urauth/ts
+        run: bun test
+        working-directory: packages/ts
+      - name: Test @urauth/node
+        run: bun test
+        working-directory: packages/node

@@ -18,7 +18,7 @@ jobs:
         with:
           enable-cache: true
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: uv sync --all-extras --frozen
         working-directory: packages/py
       - name: Run tests
         run: uv run pytest tests/ --cov --cov-fail-under=85 --ignore=tests/unit/contrib -q
