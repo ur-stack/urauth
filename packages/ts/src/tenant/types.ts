@@ -2,8 +2,8 @@
  * Protocols for tenant hierarchy persistence and role provisioning.
  */
 
-import type { TenantPath } from "./hierarchy";
-import type { RoleTemplate } from "./defaults";
+import type { TenantPath } from "./hierarchy.js";
+import type { RoleTemplate } from "./defaults.js";
 
 /** Protocol for tenant hierarchy persistence. Implement to back the hierarchy with your database. */
 export interface TenantStore {

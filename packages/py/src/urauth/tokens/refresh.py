@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from urauth.backends.base import TokenStore
+from urauth.storage.base import TokenStore
 from urauth.config import AuthConfig
 from urauth.exceptions import TokenRevokedError
 from urauth.tokens.jwt import TokenService

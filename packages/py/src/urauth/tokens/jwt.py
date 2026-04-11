@@ -134,9 +134,9 @@ class TokenService:
         except jwt.ExpiredSignatureError as exc:
             raise TokenExpiredError() from exc
         except (jwt.InvalidIssuerError, jwt.InvalidAudienceError) as exc:
-            raise InvalidTokenError(f"Invalid issuer or audience: {exc}") from exc
+            raise InvalidTokenError("Invalid token") from exc
         except jwt.InvalidTokenError as exc:
-            raise InvalidTokenError(f"Invalid token: {exc}") from exc
+            raise InvalidTokenError("Invalid token") from exc
         return claims
 
     def validate_access_token(self, token: str) -> TokenPayload:
@@ -150,7 +150,7 @@ class TokenService:
             iat = claims["iat"]
             exp = claims["exp"]
         except KeyError as exc:
-            raise InvalidTokenError(f"Missing required claim: {exc}") from exc
+            raise InvalidTokenError("Invalid token") from exc
         return TokenPayload(
             sub=sub,
             jti=jti,

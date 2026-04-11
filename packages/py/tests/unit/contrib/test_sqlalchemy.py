@@ -7,12 +7,13 @@ from sqlalchemy import String
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from urauth.authn.password import PasswordHasher
+from urauth.identity.password import PasswordHasher
+from urauth.tokens.lifecycle import IssueRequest
 from urauth.config import AuthConfig
 from urauth.contrib.sqlalchemy import RoleMixin, UserMixin, create_sqlalchemy_auth, user_role_table
 
 SECRET = "test-secret-key-for-testing-only-32chars"
-HASHER = PasswordHasher(rounds=4)  # fast for tests
+HASHER = PasswordHasher(n=2**4)  # fast for tests
 
 
 # ── Models ──────────────────────────────────────────────────────
@@ -101,7 +102,7 @@ class TestCreateSQLAlchemyAuth:
             alice = result.scalar_one()
             alice_id = alice.id
 
-        token = auth.token_service.create_token_pair(str(alice_id))
+        token = await auth.lifecycle.issue(IssueRequest(user_id=str(alice_id)))
         ctx = await auth.build_context(token.access_token)
         assert ctx.is_authenticated()
         assert ctx.user.username == "alice"
@@ -120,7 +121,7 @@ class TestCreateSQLAlchemyAuth:
             result = await session.execute(select(User).where(User.username == "alice"))
             alice = result.scalar_one()
 
-        token = auth.token_service.create_token_pair(str(alice.id))
+        token = await auth.lifecycle.issue(IssueRequest(user_id=str(alice.id)))
         ctx = await auth.build_context(token.access_token)
         assert ctx.has_role("admin")
 
@@ -180,7 +181,7 @@ class TestCreateSQLAlchemyAuth:
             result = await session.execute(select(User).where(User.username == "bob"))
             bob = result.scalar_one()
 
-        token = auth.token_service.create_token_pair(str(bob.id))
+        token = await auth.lifecycle.issue(IssueRequest(user_id=str(bob.id)))
         from urauth.exceptions import UnauthorizedError
 
         with pytest.raises(UnauthorizedError, match="Inactive"):

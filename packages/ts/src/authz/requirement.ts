@@ -4,7 +4,7 @@
  * All primitives (Permission, Role, Relation) extend Requirement.
  */
 
-import type { AuthContext } from "../context";
+import type { AuthContext } from "../context.js";
 
 /** Base for composable auth requirements. */
 export abstract class Requirement {

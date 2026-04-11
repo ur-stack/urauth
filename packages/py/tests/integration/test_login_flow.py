@@ -13,8 +13,10 @@ class TestLoginSuccess:
         assert result["status"] == 200
         body = result["body"]
         assert "access_token" in body
-        assert "refresh_token" in body
+        assert "refresh_token" not in body  # delivered via httpOnly cookie, not body
         assert body["token_type"] == "bearer"
+        # Refresh token is in the httpOnly cookie
+        assert result["response"].cookies.get("refresh_token") is not None
 
     async def test_access_protected_with_token(self, client: AsyncClient) -> None:
         result = await login(client, "admin@test.com", "admin-pass")
@@ -28,15 +30,15 @@ class TestLoginSuccess:
 
 class TestLoginFailure:
     async def test_wrong_password(self, client: AsyncClient) -> None:
-        resp = await client.post("/auth/login", json={"username": "admin@test.com", "password": "wrong"})
+        resp = await client.post("/auth/login", json={"identifier": "admin@test.com", "password": "wrong"})
         assert resp.status_code == 401
 
     async def test_nonexistent_user(self, client: AsyncClient) -> None:
-        resp = await client.post("/auth/login", json={"username": "nobody@test.com", "password": "pass"})
+        resp = await client.post("/auth/login", json={"identifier": "nobody@test.com", "password": "pass"})
         assert resp.status_code == 401
 
     async def test_inactive_user(self, client: AsyncClient) -> None:
-        resp = await client.post("/auth/login", json={"username": "inactive@test.com", "password": "pass"})
+        resp = await client.post("/auth/login", json={"identifier": "inactive@test.com", "password": "pass"})
         assert resp.status_code == 401
 
     async def test_no_token_gets_401(self, client: AsyncClient) -> None:
@@ -56,7 +58,7 @@ class TestLogoutFlow:
 
         # Logout
         resp = await client.post("/auth/logout", headers={"Authorization": f"Bearer {token}"})
-        assert resp.status_code == 204
+        assert resp.status_code == 200
 
         # Token should now be revoked
         resp = await client.get("/me", headers={"Authorization": f"Bearer {token}"})

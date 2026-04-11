@@ -12,21 +12,18 @@ from starlette.requests import Request
 
 from urauth.auth import Auth
 from urauth.authz.primitives import AnyOf, Relation, Requirement
-from urauth.backends.base import UserFunctions
-from urauth.config import AuthConfig
 from urauth.context import AuthContext
 from urauth.exceptions import UnauthorizedError
 from urauth.fastapi._guards import PolicyGuard, RelationGuard, RequirementGuard
 from urauth.fastapi.authz.access import AccessControl
 from urauth.fastapi.authz.tenant_guard import TenantGuard
 from urauth.fastapi.exceptions import register_exception_handlers
-from urauth.fastapi.pipeline.resolvers import build_resolver
-from urauth.fastapi.pipeline.routes import PipelineRouterBuilder
-from urauth.fastapi.router import create_password_auth_router
+from urauth.fastapi.resolvers import build_resolver
+from urauth.fastapi.routes import RouterBuilder
 from urauth.fastapi.transport.bearer import BearerTransport
 from urauth.fastapi.transport.cookie import CookieTransport
 from urauth.fastapi.transport.hybrid import HybridTransport
-from urauth.pipeline import JWTStrategy
+from urauth.methods import JWT, Fallback
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -61,35 +58,40 @@ class FastAuth:
         transport: Any | None = None,
     ) -> None:
         self._auth = auth
-        self._resolver: Any | None = None
+        self._transport = self._build_transport(transport)
+        self._resolver = build_resolver(auth.method, auth, self._transport)
 
-        if auth.pipeline is not None:
-            # Pipeline drives transport and resolver selection
-            self._transport = self._build_transport_from_pipeline(auth.pipeline, transport)
-            self._resolver = build_resolver(auth.pipeline.strategy, auth, self._transport)
-        elif transport is not None:
-            self._transport = transport
-        else:
-            self._transport = BearerTransport()
-
-    def _build_transport_from_pipeline(self, pipeline: Any, override: Any | None) -> Any:
-        """Build the right transport from strategy config."""
+    def _build_transport(self, override: Any | None) -> Any:
+        """Build the right transport from auth method config."""
         if override is not None:
             return override
 
-        if isinstance(pipeline.strategy, JWTStrategy):
-            if pipeline.strategy.transport == "cookie":
-                return CookieTransport(self._auth.config)
-            if pipeline.strategy.transport == "hybrid":
-                return HybridTransport(BearerTransport(), CookieTransport(self._auth.config))
+        method = self._auth.method
+
+        # Check the primary method or first JWT in a Fallback
+        jwt_method: JWT | None = None
+        if isinstance(method, JWT):
+            jwt_method = method
+        elif isinstance(method, Fallback):
+            for m in method.methods:
+                if isinstance(m, JWT):
+                    jwt_method = m
+                    break
+
+        if jwt_method is not None:
+            if jwt_method.transport == "cookie":
+                return CookieTransport(self._auth.internal_config)
+            if jwt_method.transport == "hybrid":
+                return HybridTransport(BearerTransport(), CookieTransport(self._auth.internal_config))
 
         return BearerTransport()
 
-    # ── Expose core Auth properties ─────────────────────────────
+    # ── Expose core Auth properties ─────────────────────────────────
 
     @property
-    def config(self) -> AuthConfig:
-        return self._auth.config
+    def config(self) -> Any:
+        """Internal config for backward compat (middleware, transports)."""
+        return self._auth.internal_config
 
     @property
     def lifecycle(self) -> Any:
@@ -137,17 +139,11 @@ class FastAuth:
                 if endpoint:
                     optional = getattr(endpoint, "_urauth_optional", False)
 
-        if self._resolver is not None:
-            # Pipeline path — strategy-based resolution
-            ctx = await self._resolver.resolve(request, optional=optional)
-        else:
-            # Legacy path — JWT via transport
-            raw_token = self._transport.extract_token(request)
-            ctx = await self._auth.build_context(raw_token, optional=optional, request=request)
+        ctx = await self._resolver.resolve(request, optional=optional)
         request.state._auth_context = ctx
         return ctx
 
-    # ── Current user dependency ─────────────────────────────────
+    # ── Current user dependency ─────────────────────────────────────
 
     @property
     def current_user(self) -> Callable[..., Any]:
@@ -170,7 +166,7 @@ class FastAuth:
 
         return _dependency
 
-    # ── Optional auth marker ────────────────────────────────────
+    # ── Optional auth marker ────────────────────────────────────────
 
     @property
     def optional(self) -> Callable[[F], F]:
@@ -195,25 +191,13 @@ class FastAuth:
     # ── Guards (dual-use: decorator + Depends) ──────────────────
 
     def require(self, requirement: Requirement) -> RequirementGuard:
-        """Guard requiring a specific permission, role, or composite requirement.
-
-        Works as both a decorator and a ``Depends()`` dependency::
-
-            @auth.require(can_read_users)
-            async def list_users(ctx: AuthContext = Depends(auth.context)): ...
-
-            @app.get("/users", dependencies=[Depends(auth.require(can_read_users))])
-            async def list_users(): ...
-        """
+        """Guard requiring a specific permission, role, or composite requirement."""
         return RequirementGuard(self.context, requirement)
 
     req = require  # alias
 
     def require_any(self, *requirements: Requirement) -> RequirementGuard:
-        """Guard requiring ANY of the given requirements.
-
-        Works as both a decorator and a ``Depends()`` dependency.
-        """
+        """Guard requiring ANY of the given requirements."""
         return RequirementGuard(self.context, AnyOf(list(requirements)))
 
     req_any = require_any  # alias
@@ -224,10 +208,7 @@ class FastAuth:
         *,
         resource_id_from: str,
     ) -> RelationGuard:
-        """Guard requiring a Zanzibar relation to a resource.
-
-        Works as both a decorator and a ``Depends()`` dependency.
-        """
+        """Guard requiring a Zanzibar relation to a resource."""
         return RelationGuard(self.context, self._auth, relation, resource_id_from)
 
     req_relation = require_relation  # alias
@@ -236,13 +217,10 @@ class FastAuth:
         self,
         check: Callable[[AuthContext], bool] | Callable[[AuthContext], Any],
     ) -> PolicyGuard:
-        """Guard with arbitrary policy logic.
-
-        Works as both a decorator and a ``Depends()`` dependency.
-        """
+        """Guard with arbitrary policy logic."""
         return PolicyGuard(self.context, check)
 
-    # ── Tenant guard ─────────────────────────────────────────────
+    # ── Tenant guard ─────────────────────────────────────────────────
 
     def require_tenant(
         self,
@@ -250,16 +228,7 @@ class FastAuth:
         level: str | None = None,
         requirement: Requirement | None = None,
     ) -> TenantGuard:
-        """Guard requiring a tenant context.
-
-        Optionally restricts to a specific hierarchy level and/or
-        an additional authorization requirement.
-
-        Works as both a decorator and a ``Depends()`` dependency::
-
-            @auth.require_tenant(level="organization")
-            async def org_endpoint(ctx: AuthContext = Depends(auth.context)): ...
-        """
+        """Guard requiring a tenant context."""
         return TenantGuard(self.context, level=level, requirement=requirement)
 
     req_tenant = require_tenant  # alias
@@ -274,15 +243,7 @@ class FastAuth:
         on_deny: Callable[..., Any] | None = None,
         auto_error: bool = True,
     ) -> Any:
-        """Create an AccessControl instance wired to this auth's context resolution.
-
-        Usage::
-
-            access = auth.access_control(registry=registry)
-
-            @access.guard(Perms.TASK_READ)
-            async def list_tasks(request: Request): ...
-        """
+        """Create an AccessControl instance wired to this auth's context resolution."""
         if registry is not None and checker is None:
             checker = registry.build_checker()
 
@@ -296,40 +257,24 @@ class FastAuth:
     # ── Routers ─────────────────────────────────────────────────
 
     def auto_router(self) -> APIRouter:
-        """Generate all auth routes from the pipeline configuration.
+        """Generate all auth routes from the Auth configuration.
 
-        Reads ``auth.pipeline`` and creates endpoints for every enabled
-        login method, lifecycle operation, MFA, password reset, account
-        linking, and passkey management.
-
-        Raises:
-            RuntimeError: If no pipeline was set on the ``Auth`` instance.
+        Reads enabled login methods, features, and lifecycle config
+        from the ``Auth`` instance and creates endpoints accordingly.
         """
-        if self._auth.pipeline is None:
-            raise RuntimeError("auto_router() requires a Pipeline on Auth. Pass pipeline= to Auth().")
-
-        builder = PipelineRouterBuilder(
-            self._auth,
-            self._auth.pipeline,
-            self._transport,
-            resolver=self._resolver,
-        )
+        builder = RouterBuilder(self._auth, self._transport)
         return builder.build()
 
     def password_auth_router(self, **kwargs: Any) -> APIRouter:
-        """Return an APIRouter with login/refresh/logout endpoints."""
-        user_fns = UserFunctions(
-            get_by_id=self._auth.get_user,  # type: ignore[arg-type]
-            get_by_username=self._auth.get_user_by_username,  # type: ignore[arg-type]
-            verify_password=self._auth.verify_password,  # type: ignore[arg-type]
-        )
+        """Backward compat: return a router with login/refresh/logout.
 
-        return create_password_auth_router(
-            user_fns=user_fns,
-            lifecycle=self._auth.lifecycle,
-            transport=self._transport,
-            config=self._auth.config,
-        )
+        Ensures password login is enabled even if not explicitly configured,
+        then delegates to ``auto_router()``.
+        """
+        from urauth.methods import Password as _Password
+        if self._auth.password is None:
+            self._auth.password = _Password()
+        return self.auto_router()
 
     # ── App setup ───────────────────────────────────────────────
 

@@ -9,11 +9,11 @@
  * are semantically equal. Supported separators: @ # . : | \ / $ &
  */
 
-import type { AuthContext } from "../context";
-import type { Action, Resource } from "../actions";
-import { Requirement } from "./requirement";
+import type { AuthContext } from "../context.js";
+import type { Action, Resource } from "../actions.js";
+import { Requirement } from "./requirement.js";
 
-export type { Action, Resource } from "../actions";
+export type { Action, Resource } from "../actions.js";
 
 // ── Separator auto-detection ──────────────────────────────────────
 

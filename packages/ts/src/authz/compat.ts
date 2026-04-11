@@ -2,8 +2,8 @@
  * canAccess() — convenience function for sync permission checks.
  */
 
-import type { AuthContext } from "../context";
-import { Permission, matchPermission } from "./primitives";
+import type { AuthContext } from "../context.js";
+import { Permission, matchPermission } from "./primitives.js";
 
 /** Sync permission checker interface. */
 export interface PermissionChecker {

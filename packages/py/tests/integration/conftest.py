@@ -216,11 +216,11 @@ def app(fast_auth: FastAuth) -> FastAPI:
 
 @pytest.fixture
 async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as c:
         yield c
 
 
 async def login(client: AsyncClient, email: str, password: str) -> dict[str, Any]:
     """Helper: POST /auth/login and return response JSON."""
-    resp = await client.post("/auth/login", json={"username": email, "password": password})
+    resp = await client.post("/auth/login", json={"identifier": email, "password": password})
     return {"status": resp.status_code, "body": resp.json() if resp.status_code == 200 else None, "response": resp}

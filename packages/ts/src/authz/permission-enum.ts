@@ -13,7 +13,7 @@
  *   Perms.USER_READ.toString() // "user:read"
  */
 
-import { Permission, type PermissionParser } from "./primitives";
+import { Permission, type PermissionParser } from "./primitives.js";
 
 type PermissionDef = string | [string, string] | Permission;
 type PermissionDefs = Record<string, PermissionDef>;

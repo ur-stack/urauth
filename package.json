@@ -6,6 +6,7 @@
     "packages/node",
     "packages/vue",
     "packages/nuxt",
+    "examples/task-manager-nuxt-frontend",
     "packages/react",
     "packages/next",
     "packages/express",
@@ -26,6 +27,7 @@
     "eslint": "^10.1.0",
     "globals": "^17.4.0",
     "typescript-eslint": "^8.57.2",
-    "vitepress": "^1.6.3"
+    "vitepress": "^1.6.3",
+    "vitepress-plugin-diagrams": "^1.2.2"
   }
 }

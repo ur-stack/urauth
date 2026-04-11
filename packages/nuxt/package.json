@@ -3,19 +3,30 @@
   "version": "0.1.0",
   "description": "Nuxt module for urauth authentication",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/module.js",
+  "types": "dist/module.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/module.js",
+      "types": "./dist/module.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@urauth/ts": "*"
+    "@nuxt/kit": "^4.0.0",
+    "@urauth/ts": "*",
+    "defu": "^6.0.0"
+  },
+  "peerDependencies": {
+    "nuxt": ">=3.0.0"
   },
   "devDependencies": {
     "typescript": "^5.5.0"
   },
-  "files": ["dist"],
+  "files": ["dist", "src/runtime"],
   "publishConfig": {
     "access": "public"
   },

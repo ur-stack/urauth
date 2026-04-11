@@ -1,0 +1,19 @@
+{
+  "name": "urauth-nuxt-task-manager",
+  "private": true,
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@nuxt/ui": "^3.0.0",
+    "@urauth/nuxt": "workspace:*",
+    "nuxt": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vue-tsc": "^2.0.0"
+  }
+}

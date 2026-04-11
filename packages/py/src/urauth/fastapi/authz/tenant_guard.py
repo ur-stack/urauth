@@ -23,7 +23,7 @@ from starlette.requests import Request
 from urauth.authz.primitives import Requirement
 from urauth.context import AuthContext
 from urauth.exceptions import ForbiddenError
-from urauth.fastapi._guards import ContextResolver, _BaseGuard
+from urauth.fastapi._guards import ContextResolver, _BaseGuard  # pyright: ignore[reportPrivateUsage]
 
 
 class TenantGuard(_BaseGuard):

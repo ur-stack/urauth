@@ -2,8 +2,8 @@
  * Checker-based access control — the single concept for authorization.
  */
 
-import type { AuthContext } from "../context";
-import { Permission, matchPermission } from "./primitives";
+import type { AuthContext } from "../context.js";
+import { Permission, matchPermission } from "./primitives.js";
 
 /** Async permission checker interface (AuthContext-based) for server-side use. */
 export interface AsyncPermissionChecker {

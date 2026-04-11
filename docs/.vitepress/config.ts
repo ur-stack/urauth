@@ -1,20 +1,36 @@
 import { defineConfig } from "vitepress";
+import { configureDiagramsPlugin } from "vitepress-plugin-diagrams";
 import { packageSidebars } from "./sidebar-generated";
 
 export default defineConfig({
+  markdown: {
+    config: (md) => {
+      configureDiagramsPlugin(md, {
+        diagramsDir: "docs/public/diagrams",
+        publicPath: "/diagrams",
+        krokiServerUrl: "https://kroki.io",
+      });
+    },
+  },
+
   title: "urauth",
   description:
     "Unified authentication & authorization — JWT, OAuth2, RBAC, multi-tenant. Python and TypeScript.",
 
   themeConfig: {
     nav: [
-      { text: "Guide", link: "/guide/" },
+      { text: "Overview", link: "/overview/" },
       {
         text: "Packages",
         items: [
-          { text: "Python (urauth)", link: "/packages/py/" },
-          { text: "TypeScript (@urauth/ts)", link: "/packages/ts/" },
-          { text: "Node.js (@urauth/node)", link: "/packages/node/" },
+          {
+            text: "Backend",
+            items: [
+              { text: "Python", link: "/packages/py/" },
+              { text: "TypeScript", link: "/packages/ts/" },
+              { text: "Node.js", link: "/packages/node/" },
+            ],
+          },
           {
             text: "Middleware",
             items: [
@@ -38,17 +54,19 @@ export default defineConfig({
     ],
 
     sidebar: {
-      "/guide/": [
+      "/overview/": [
         {
-          text: "Guide",
+          text: "Overview",
           items: [
-            { text: "Overview", link: "/guide/" },
-            { text: "Getting Started", link: "/guide/getting-started" },
-            { text: "Core Concepts", link: "/guide/concepts" },
+            { text: "Overview", link: "/overview/" },
+            { text: "Security", link: "/overview/security" },
+            { text: "Integrations", link: "/overview/integrations" },
+            { text: "About", link: "/overview/about" },
+            { text: "Contributing", link: "/overview/contributing" },
           ],
         },
       ],
-      ...packageSidebars,
+...packageSidebars,
     },
 
     socialLinks: [

@@ -6,7 +6,6 @@ import fastapi as fastapi  # ensure fastapi is installed
 
 from urauth._version import __version__
 from urauth.auth import Auth as Auth
-from urauth.config import AuthConfig
 from urauth.context import AuthContext
 from urauth.fastapi.auth import FastAuth
 from urauth.fastapi.transport.bearer import BearerTransport
@@ -15,7 +14,6 @@ from urauth.fastapi.transport.hybrid import HybridTransport
 
 __all__ = [
     "Auth",
-    "AuthConfig",
     "AuthContext",
     "BearerTransport",
     "CookieTransport",

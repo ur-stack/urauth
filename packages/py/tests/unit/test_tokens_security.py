@@ -86,14 +86,14 @@ class TestIssuerAudienceValidation:
         svc_a = TokenService(AuthConfig(secret_key=SECRET, token_issuer="app-a"))
         svc_b = TokenService(AuthConfig(secret_key=SECRET, token_issuer="app-b"))
         token = svc_a.create_access_token("user-1")
-        with pytest.raises(InvalidTokenError, match="issuer"):
+        with pytest.raises(InvalidTokenError):
             svc_b.validate_access_token(token)
 
     def test_audience_mismatch_rejected(self) -> None:
         svc_a = TokenService(AuthConfig(secret_key=SECRET, token_audience="api-a"))
         svc_b = TokenService(AuthConfig(secret_key=SECRET, token_audience="api-b"))
         token = svc_a.create_access_token("user-1")
-        with pytest.raises(InvalidTokenError, match="audience"):
+        with pytest.raises(InvalidTokenError):
             svc_b.validate_access_token(token)
 
     def test_valid_issuer_and_audience(self) -> None:

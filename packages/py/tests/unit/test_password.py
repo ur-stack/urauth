@@ -23,19 +23,19 @@ class TestPasswordHasher:
         assert hasher.verify("same", h1)
         assert hasher.verify("same", h2)
 
-    def test_bcrypt_72_byte_limit_rejects_long_password(self) -> None:
-        """bcrypt rejects passwords longer than 72 bytes — callers must truncate."""
+    def test_long_password_accepted(self) -> None:
+        """scrypt has no length limit — long passwords hash and verify correctly."""
         hasher = PasswordHasher()
-        long_pw = "A" * 73
-        with pytest.raises(ValueError, match="72 bytes"):
-            hasher.hash(long_pw)
+        long_pw = "A" * 1000
+        hashed = hasher.hash(long_pw)
+        assert hasher.verify(long_pw, hashed)
+        assert not hasher.verify("A" * 999, hashed)
 
-    def test_password_at_72_byte_boundary(self) -> None:
-        """Exactly 72 bytes is the maximum accepted by bcrypt."""
+    def test_hash_format(self) -> None:
+        """Hash must use the scrypt MCF prefix."""
         hasher = PasswordHasher()
-        pw = "A" * 72
-        hashed = hasher.hash(pw)
-        assert hasher.verify(pw, hashed)
+        hashed = hasher.hash("pw")
+        assert hashed.startswith("$scrypt$")
 
     def test_empty_password(self) -> None:
         hasher = PasswordHasher()
@@ -50,7 +50,9 @@ class TestPasswordHasher:
         assert hasher.verify(pw, hashed)
         assert not hasher.verify("password", hashed)
 
-    def test_verify_with_invalid_hash_raises(self) -> None:
+    def test_verify_with_invalid_hash_returns_false(self) -> None:
+        """Malformed hash strings must return False, never raise."""
         hasher = PasswordHasher()
-        with pytest.raises((ValueError, Exception)):
-            hasher.verify("password", "not-a-bcrypt-hash")
+        assert not hasher.verify("password", "not-a-hash")
+        assert not hasher.verify("password", "$scrypt$bad$format")
+        assert not hasher.verify("password", "")

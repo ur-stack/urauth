@@ -14,9 +14,31 @@ from enum import StrEnum
 from typing import Any
 
 try:
+    from pyrate_limiter import BucketFactory as _BucketFactory  # type: ignore[reportMissingImports]
+    from pyrate_limiter import InMemoryBucket as _InMemoryBucket  # type: ignore[reportMissingImports]
     from pyrate_limiter import Limiter  # type: ignore[reportMissingImports]
+    from pyrate_limiter import RateItem as _RateItem  # type: ignore[reportMissingImports]
+
+    class _PerKeyBucketFactory(_BucketFactory):  # type: ignore[misc]
+        """pyrate-limiter v4 factory — each key gets its own isolated bucket."""
+
+        def __init__(self, rates: list[Any]) -> None:
+            self._rates = rates
+            self._buckets: dict[str, Any] = {}
+
+        def wrap_item(self, name: str, weight: int = 1) -> _RateItem:
+            return _RateItem(name, 1, weight=weight)
+
+        def get(self, item: _RateItem) -> Any:
+            if item.name not in self._buckets:
+                bucket = self.create(_InMemoryBucket, self._rates)
+                self.schedule_leak(bucket)
+                self._buckets[item.name] = bucket
+            return self._buckets[item.name]
+
 except ImportError:
     Limiter = None  # type: ignore[assignment,misc]
+    _PerKeyBucketFactory = None  # type: ignore[assignment,misc]
 
 
 class KeyStrategy(StrEnum):
@@ -77,7 +99,9 @@ class RateLimiter:
         if bucket is not None:
             self._limiter = Limiter(bucket)
         else:
-            self._limiter = Limiter(*rates) if len(rates) == 1 else Limiter(rates)
+            # v4 requires a BucketFactory for per-key isolation; passing rates
+            # directly creates a single shared bucket across all keys.
+            self._limiter = Limiter(_PerKeyBucketFactory(rates))
 
         self._key_strategy = key
         self._key_func = key_func

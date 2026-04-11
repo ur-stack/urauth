@@ -5,11 +5,11 @@
  * which resolves through this file. All existing imports continue to work.
  */
 
-export { Permission, Role, Relation, RelationTuple, matchPermission } from "./authz/primitives";
-export type { AsyncPermissionChecker } from "./authz/checker";
-export { StringChecker, RoleExpandingChecker } from "./authz/checker";
-export { canAccess, type PermissionChecker } from "./authz/compat";
-export { Requirement, AllOf, AnyOf, allOf, anyOf } from "./authz/requirement";
-export { RoleRegistry, type RoleLoader, type RoleCache, MemoryRoleCache } from "./authz/roles";
-export { definePermissions } from "./authz/permission-enum";
-export { defineRelations } from "./authz/relation-enum";
+export { Permission, Role, Relation, RelationTuple, matchPermission } from "./authz/primitives.js";
+export type { AsyncPermissionChecker } from "./authz/checker.js";
+export { StringChecker, RoleExpandingChecker } from "./authz/checker.js";
+export { canAccess, type PermissionChecker } from "./authz/compat.js";
+export { Requirement, AllOf, AnyOf, allOf, anyOf } from "./authz/requirement.js";
+export { RoleRegistry, type RoleLoader, type RoleCache, MemoryRoleCache } from "./authz/roles.js";
+export { definePermissions } from "./authz/permission-enum.js";
+export { defineRelations } from "./authz/relation-enum.js";

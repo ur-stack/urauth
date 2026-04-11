@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import pytest
 
-from urauth.authn.password import PasswordHasher
+from urauth.identity.password import PasswordHasher
 
 
 @pytest.fixture
 def hasher() -> PasswordHasher:
-    # Use low rounds for test speed
-    return PasswordHasher(rounds=4)
+    # n=2**4 (16) is the minimum valid power-of-2; keeps tests fast
+    return PasswordHasher(n=2**4)
 
 
 class TestHashIsNotPlaintext:
@@ -25,9 +25,9 @@ class TestHashIsNotPlaintext:
         hashed = hasher.hash(password)
         assert hashed != password
 
-    def test_hash_has_bcrypt_prefix(self, hasher: PasswordHasher) -> None:
+    def test_hash_has_scrypt_prefix(self, hasher: PasswordHasher) -> None:
         hashed = hasher.hash("test-password")
-        assert hashed.startswith("$2b$") or hashed.startswith("$2a$")
+        assert hashed.startswith("$scrypt$")
 
 
 class TestHashSaltUniqueness:
@@ -83,39 +83,28 @@ class TestEmptyPassword:
 
 
 class TestVeryLongPassword:
-    """Very long passwords must not crash.
+    """scrypt has no length limit — long passwords must hash and verify correctly."""
 
-    Note: modern bcrypt implementations raise ValueError for passwords >72 bytes
-    rather than silently truncating. This is the safer behavior.
-    """
-
-    def test_1000_char_password_raises_or_succeeds(self, hasher: PasswordHasher) -> None:
+    def test_1000_char_password(self, hasher: PasswordHasher) -> None:
         long_password = "a" * 1000
-        try:
-            hashed = hasher.hash(long_password)
-            assert hasher.verify(long_password, hashed) is True
-        except ValueError:
-            pass  # bcrypt rejecting >72 byte passwords is valid
+        hashed = hasher.hash(long_password)
+        assert hasher.verify(long_password, hashed) is True
 
-    def test_10000_char_password_raises_or_succeeds(self, hasher: PasswordHasher) -> None:
+    def test_10000_char_password(self, hasher: PasswordHasher) -> None:
         very_long = "x" * 10_000
-        try:
-            hashed = hasher.hash(very_long)
-            assert hasher.verify(very_long, hashed) is True
-        except ValueError:
-            pass  # bcrypt rejecting >72 byte passwords is valid
+        hashed = hasher.hash(very_long)
+        assert hasher.verify(very_long, hashed) is True
 
-    def test_exactly_72_bytes_works(self, hasher: PasswordHasher) -> None:
-        """Exactly 72 ASCII bytes should always work with bcrypt."""
+    def test_72_byte_password(self, hasher: PasswordHasher) -> None:
         password = "a" * 72
         hashed = hasher.hash(password)
         assert hasher.verify(password, hashed) is True
 
-    def test_73_bytes_raises_valueerror(self, hasher: PasswordHasher) -> None:
-        """73 bytes exceeds bcrypt limit -- should raise ValueError."""
+    def test_73_byte_password(self, hasher: PasswordHasher) -> None:
+        """scrypt has no 72-byte limit — passwords of any length work."""
         password = "a" * 73
-        with pytest.raises(ValueError, match="72 bytes"):
-            hasher.hash(password)
+        hashed = hasher.hash(password)
+        assert hasher.verify(password, hashed) is True
 
 
 class TestUnicodePassword:
@@ -141,10 +130,7 @@ class TestNullBytesInPassword:
     """Null bytes in password should work or fail cleanly."""
 
     def test_password_with_null_byte(self, hasher: PasswordHasher) -> None:
-        """bcrypt implementations may reject null bytes. Either behavior is acceptable."""
+        """scrypt (via hashlib) encodes as UTF-8 bytes — null bytes are handled."""
         password = "before\x00after"
-        try:
-            hashed = hasher.hash(password)
-            assert hasher.verify(password, hashed) is True
-        except ValueError:
-            pass  # bcrypt rejecting null bytes is a valid security behavior
+        hashed = hasher.hash(password)
+        assert hasher.verify(password, hashed) is True

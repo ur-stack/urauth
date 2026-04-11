@@ -247,7 +247,7 @@ class TestLogoutAllDeadEnd:
                 headers={"Authorization": f"Bearer {expired_token}"},
             )
             # Returns 204 — user thinks all sessions are revoked
-            assert resp.status_code == 204
+            assert resp.status_code == 200
 
             # But token_a is still valid!
             resp = await client.get("/me", headers={"Authorization": f"Bearer {token_a}"})
@@ -289,7 +289,7 @@ class TestMultiDeviceIsolation:
                 "/auth/logout",
                 headers={"Authorization": f"Bearer {device_a_token}"},
             )
-            assert resp.status_code == 204
+            assert resp.status_code == 200
 
             # Device B should still work
             resp = await client.get("/me", headers={"Authorization": f"Bearer {device_b_token}"})

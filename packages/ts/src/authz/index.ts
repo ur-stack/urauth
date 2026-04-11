@@ -1,13 +1,13 @@
-export { Requirement, AllOf, AnyOf, allOf, anyOf } from "./requirement";
-export { Permission, Role, Relation, RelationTuple, matchPermission } from "./primitives";
-export type { Action, Resource, PermissionParser, RelationParser } from "./primitives";
-export { type AsyncPermissionChecker, StringChecker, RoleExpandingChecker } from "./checker";
+export { Requirement, AllOf, AnyOf, allOf, anyOf } from "./requirement.js";
+export { Permission, Role, Relation, RelationTuple, matchPermission } from "./primitives.js";
+export type { Action, Resource, PermissionParser, RelationParser } from "./primitives.js";
+export { type AsyncPermissionChecker, StringChecker, RoleExpandingChecker } from "./checker.js";
 export {
   RoleRegistry,
   type RoleLoader,
   type RoleCache,
   MemoryRoleCache,
-} from "./roles";
-export { definePermissions } from "./permission-enum";
-export { defineRelations } from "./relation-enum";
-export { canAccess, type PermissionChecker } from "./compat";
+} from "./roles.js";
+export { definePermissions } from "./permission-enum.js";
+export { defineRelations } from "./relation-enum.js";
+export { canAccess, type PermissionChecker } from "./compat.js";

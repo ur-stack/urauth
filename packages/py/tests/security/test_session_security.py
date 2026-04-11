@@ -9,8 +9,6 @@ from __future__ import annotations
 import asyncio
 import time
 
-import pytest
-
 from urauth.backends.memory import MemorySessionStore, MemoryTokenStore
 
 

@@ -11,9 +11,9 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from urauth.backends.base import TokenStore
+from urauth.storage.base import TokenStore
 from urauth.config import AuthConfig
-from urauth.events import AuthEvent, AuthEventHandler, NullEventHandler
+from urauth.audit.events import AuthEvent, AuthEventHandler, NullEventHandler
 from urauth.exceptions import InvalidTokenError, TokenExpiredError, TokenRevokedError, UnauthorizedError
 from urauth.tokens.jwt import TokenService
 from urauth.types import TokenPayload
@@ -56,11 +56,13 @@ class TokenLifecycle:
         config: AuthConfig,
         token_store: TokenStore,
         event_handler: AuthEventHandler | None = None,
+        namespace: str | None = None,
     ) -> None:
         self._config = config
         self.store = token_store
         self._token_service = TokenService(config)
         self._events: AuthEventHandler = event_handler or NullEventHandler()
+        self._namespace = namespace
 
     @property
     def jwt(self) -> TokenService:
@@ -70,6 +72,12 @@ class TokenLifecycle:
 
     # ── Issue (login) ─────────────────────────────────────────
 
+    def _store_key(self, jti: str) -> str:
+        """Prefix a JTI with namespace for store isolation."""
+        if self._namespace:
+            return f"{self._namespace}:{jti}"
+        return jti
+
     async def issue(self, request: IssueRequest) -> IssuedTokenPair:
         """Create an access+refresh token pair, register both in the store.
 
@@ -77,6 +85,11 @@ class TokenLifecycle:
         internally. This is the ONE call for login.
         """
         family_id = uuid.uuid4().hex
+
+        # Inject namespace into extra claims if set
+        extra_claims = dict(request.extra_claims) if request.extra_claims else {}
+        if self._namespace:
+            extra_claims["ns"] = self._namespace
 
         # Create the JWT pair
         pair = self._token_service.create_token_pair(
@@ -86,7 +99,7 @@ class TokenLifecycle:
             tenant_id=request.tenant_id,
             tenant_path=request.tenant_path,
             fresh=request.fresh,
-            extra_claims=request.extra_claims,
+            extra_claims=extra_claims or None,
             family_id=family_id,
         )
 
@@ -95,7 +108,7 @@ class TokenLifecycle:
         refresh_claims = self._token_service.decode_token(pair.refresh_token)
 
         await self.store.add_token(
-            jti=access_claims["jti"],
+            jti=self._store_key(access_claims["jti"]),
             user_id=request.user_id,
             token_type="access",
             expires_at=access_claims["exp"],
@@ -103,7 +116,7 @@ class TokenLifecycle:
             metadata=request.session_metadata,
         )
         await self.store.add_token(
-            jti=refresh_claims["jti"],
+            jti=self._store_key(refresh_claims["jti"]),
             user_id=request.user_id,
             token_type="refresh",
             expires_at=refresh_claims["exp"],
@@ -136,8 +149,9 @@ class TokenLifecycle:
         user_id = claims["sub"]
 
         # Reuse detection: if already revoked, someone replayed a stolen token
-        if await self.store.is_revoked(jti):
-            family_id = await self.store.get_family_id(jti)
+        store_jti = self._store_key(jti)
+        if await self.store.is_revoked(store_jti):
+            family_id = await self.store.get_family_id(store_jti)
             if family_id:
                 await self.store.revoke_family(family_id)
             else:
@@ -150,10 +164,10 @@ class TokenLifecycle:
             raise TokenRevokedError("Refresh token reuse detected — all tokens revoked")
 
         # Revoke the old refresh token
-        await self.store.revoke(jti, claims["exp"])
+        await self.store.revoke(store_jti, claims["exp"])
 
         # Issue new pair within the same family
-        family_id = claims.get("family_id") or await self.store.get_family_id(jti) or uuid.uuid4().hex
+        family_id = claims.get("family_id") or await self.store.get_family_id(store_jti) or uuid.uuid4().hex
 
         pair = self._token_service.create_token_pair(user_id, family_id=family_id)
 
@@ -162,14 +176,14 @@ class TokenLifecycle:
         refresh_claims = self._token_service.decode_token(pair.refresh_token)
 
         await self.store.add_token(
-            jti=access_claims["jti"],
+            jti=self._store_key(access_claims["jti"]),
             user_id=user_id,
             token_type="access",
             expires_at=access_claims["exp"],
             family_id=family_id,
         )
         await self.store.add_token(
-            jti=refresh_claims["jti"],
+            jti=self._store_key(refresh_claims["jti"]),
             user_id=user_id,
             token_type="refresh",
             expires_at=refresh_claims["exp"],
@@ -200,11 +214,12 @@ class TokenLifecycle:
         except (InvalidTokenError, TokenExpiredError):
             return
 
-        family_id = await self.store.get_family_id(claims["jti"])
+        store_jti = self._store_key(claims["jti"])
+        family_id = await self.store.get_family_id(store_jti)
         if family_id:
             await self.store.revoke_family(family_id)
         else:
-            await self.store.revoke(claims["jti"], claims["exp"])
+            await self.store.revoke(store_jti, claims["exp"])
 
     async def revoke_all(self, user_id: str) -> None:
         """Revoke ALL tokens for a user (global logout, password change, account disable)."""
@@ -220,7 +235,7 @@ class TokenLifecycle:
         """
         payload = self._token_service.validate_access_token(raw_access_token)
 
-        if await self.store.is_revoked(payload.jti):
+        if await self.store.is_revoked(self._store_key(payload.jti)):
             raise UnauthorizedError("Token has been revoked")
 
         return payload

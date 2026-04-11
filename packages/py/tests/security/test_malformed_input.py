@@ -12,9 +12,9 @@ import json
 import jwt as pyjwt
 import pytest
 
-from urauth.authz.primitives import Permission, Relation, RelationTuple
+from urauth.authz.primitives import Permission, RelationTuple
 from urauth.config import AuthConfig
-from urauth.exceptions import InvalidTokenError, TokenExpiredError
+from urauth.exceptions import InvalidTokenError
 from urauth.tokens.jwt import TokenService
 
 SECRET = "test-secret-key-32-chars-long-xx"
@@ -163,8 +163,8 @@ class TestDuplicateClaimsInPayload:
         payload = base64.urlsafe_b64encode(raw_payload.encode()).rstrip(b"=")
         # Sign it properly
         signing_input = header.decode() + "." + payload.decode()
-        import hmac
         import hashlib
+        import hmac
         sig = base64.urlsafe_b64encode(
             hmac.new(config.secret_key.encode(), signing_input.encode(), hashlib.sha256).digest()
         ).rstrip(b"=")

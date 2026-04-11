@@ -2,9 +2,10 @@
  * @urauth/react — React hooks for urauth access control.
  */
 
-import { createContext, useContext } from "react";
-import type { AuthContext } from "@urauth/ts";
-import { canAccess, type PermissionChecker } from "@urauth/ts";
+import { createContext, useContext, useState, useEffect, createElement } from "react";
+import type { ReactNode } from "react";
+import type { AuthContext, TokenPair, PermissionChecker, UrAuthClient } from "@urauth/ts";
+import { canAccess } from "@urauth/ts";
 
 interface AccessContext {
   ctx: AuthContext;
@@ -32,7 +33,7 @@ export const UrAuthProvider = UrAuthContext.Provider;
  */
 export function useAccess(): { can: (resource: string, action: string, options?: { scope?: string }) => boolean } {
   const access = useContext(UrAuthContext);
-  if (!access) {
+  if (access === null) {
     throw new Error(
       "useAccess() requires <UrAuthProvider> in a parent component.",
     );
@@ -53,3 +54,51 @@ export function useAccess(): { can: (resource: string, action: string, options?:
 
   return { can };
 }
+
+// ── Client-aware provider ─────────────────────────────────────
+
+/**
+ * Provider that connects an UrAuthClient to the React context.
+ *
+ * Automatically decodes the JWT and provides the AuthContext to all
+ * descendant components. Re-renders on token changes (login/refresh/logout).
+ *
+ * Usage:
+ *   const client = new UrAuthClient({ baseURL: "http://localhost:8000" });
+ *   <UrAuthClientProvider client={client}>
+ *     <App />
+ *   </UrAuthClientProvider>
+ */
+export function UrAuthClientProvider({
+  client,
+  checker,
+  children,
+}: {
+  client: UrAuthClient;
+  checker?: PermissionChecker;
+  children: ReactNode;
+}): ReturnType<typeof createElement> {
+  const [ctx, setCtx] = useState<AuthContext>(() => client.getContext());
+
+  useEffect(() => {
+    const prevCallback = client.onTokenChange;
+
+    client.onTokenChange = (tokens: TokenPair | null) => {
+      prevCallback?.(tokens);
+      setCtx(client.getContext());
+    };
+
+    // Sync initial state
+    setCtx(client.getContext());
+
+    return () => {
+      client.onTokenChange = prevCallback;
+    };
+  }, [client]);
+
+  return createElement(UrAuthContext.Provider, { value: { ctx, checker } }, children);
+}
+
+// ── TanStack Query hooks (re-exported) ────────────────────────
+
+export { useSession, useLogin, useLogout, useLogoutAll, useRefresh } from "./query";

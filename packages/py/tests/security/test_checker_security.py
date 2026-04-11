@@ -12,7 +12,6 @@ from urauth.authz.checker import RoleExpandingChecker, StringChecker
 from urauth.authz.primitives import AllOf, AnyOf, Permission, Role
 from urauth.context import AuthContext
 
-
 # ── StringChecker ────────────────────────────────────────────────
 
 

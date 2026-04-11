@@ -6,12 +6,13 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlmodel import Field, SQLModel
 
-from urauth.authn.password import PasswordHasher
+from urauth.identity.password import PasswordHasher
+from urauth.tokens.lifecycle import IssueRequest
 from urauth.config import AuthConfig
 from urauth.contrib.sqlmodel import RoleBase, UserBase, create_sqlmodel_auth
 
 SECRET = "test-secret-key-for-testing-only-32chars"
-HASHER = PasswordHasher(rounds=4)
+HASHER = PasswordHasher(n=2**4)
 
 
 # ── Models ──────────────────────────────────────────────────────
@@ -76,7 +77,7 @@ class TestCreateSQLModelAuth:
             result = await session.execute(select(User).where(User.username == "alice"))
             alice = result.scalar_one()
 
-        token = auth.token_service.create_token_pair(str(alice.id))
+        token = await auth.lifecycle.issue(IssueRequest(user_id=str(alice.id)))
         ctx = await auth.build_context(token.access_token)
         assert ctx.is_authenticated()
         assert ctx.user.username == "alice"
@@ -125,7 +126,7 @@ class TestCreateSQLModelAuth:
             result = await session.execute(select(User).where(User.username == "bob"))
             bob = result.scalar_one()
 
-        token = auth.token_service.create_token_pair(str(bob.id))
+        token = await auth.lifecycle.issue(IssueRequest(user_id=str(bob.id)))
         from urauth.exceptions import UnauthorizedError
 
         with pytest.raises(UnauthorizedError, match="Inactive"):

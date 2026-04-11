@@ -14,7 +14,7 @@
  *   Rels.DOC_OWNER.tuple("readme", "user:alice") // RelationTuple
  */
 
-import { Relation, type RelationParser } from "./primitives";
+import { Relation, type RelationParser } from "./primitives.js";
 
 type RelationDef = string | [string, string] | Relation;
 type RelationDefs = Record<string, RelationDef>;

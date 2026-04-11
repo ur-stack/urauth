@@ -16,7 +16,7 @@
  *     await defaults.provision("org-123", "organization", provisioner);
  */
 
-import type { TenantRoleProvisioner } from "./types";
+import type { TenantRoleProvisioner } from "./types.js";
 
 /** Blueprint for a default role to create in a new tenant. */
 export class RoleTemplate {

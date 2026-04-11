@@ -3,6 +3,6 @@ export {
   TenantNode,
   TenantPath,
   TenantHierarchy,
-} from "./hierarchy";
-export { RoleTemplate, TenantDefaults } from "./defaults";
-export type { TenantStore, TenantRoleProvisioner } from "./types";
+} from "./hierarchy.js";
+export { RoleTemplate, TenantDefaults } from "./defaults.js";
+export type { TenantStore, TenantRoleProvisioner } from "./types.js";

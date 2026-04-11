@@ -181,20 +181,20 @@ class TestAsyncCallbacks:
 
 
 class TestMissingCallbacks:
-    def test_no_get_user_raises(self) -> None:
+    async def test_no_get_user_raises(self) -> None:
         auth = Auth(config=AuthConfig(secret_key=SECRET))
         with pytest.raises(NotImplementedError, match="get_user"):
-            auth.get_user("user-1")
+            await auth.get_user("user-1")
 
-    def test_no_get_user_by_username_raises(self) -> None:
+    async def test_no_get_user_by_username_raises(self) -> None:
         auth = Auth(config=AuthConfig(secret_key=SECRET))
         with pytest.raises(NotImplementedError, match="get_user_by_username"):
-            auth.get_user_by_username("alice")
+            await auth.get_user_by_username("alice")
 
-    def test_no_verify_password_raises(self) -> None:
+    async def test_no_verify_password_raises(self) -> None:
         auth = Auth(config=AuthConfig(secret_key=SECRET))
         with pytest.raises(NotImplementedError, match="verify_password"):
-            auth.verify_password(object(), "pw")
+            await auth.verify_password(object(), "pw")
 
 
 # ── Callback + subclass coexistence ─────────────────────────────

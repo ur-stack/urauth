@@ -7,14 +7,12 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from tests.conftest import FakeBackend, FakeUser
-from urauth.backends.base import UserFunctions
+from urauth.auth import Auth
 from urauth.backends.memory import MemoryTokenStore
 from urauth.config import AuthConfig
+from urauth.fastapi.auth import FastAuth
 from urauth.fastapi.exceptions import register_exception_handlers
-from urauth.fastapi.router import create_password_auth_router
-from urauth.fastapi.transport.bearer import BearerTransport
 from urauth.tokens.jwt import TokenService
-from urauth.tokens.lifecycle import TokenLifecycle
 
 SECRET = "test-secret-key-32-chars-long-xx"
 
@@ -38,21 +36,23 @@ def svc(config: AuthConfig) -> TokenService:
 
 
 @pytest.fixture
-def app(config: AuthConfig, store: MemoryTokenStore, svc: TokenService) -> FastAPI:
-    transport = BearerTransport()
+def app(config: AuthConfig, store: MemoryTokenStore) -> FastAPI:
     alice = FakeUser(id="user-1", email="alice@example.com", password_hash="secret123")
     bob = FakeUser(id="user-2", email="bob@example.com", password_hash="pass456")
     backend = FakeBackend([alice, bob])
-    user_fns = UserFunctions(
-        get_by_id=backend.get_by_id,
-        get_by_username=backend.get_by_username,
+
+    core = Auth(
+        config=config,
+        token_store=store,
+        get_user=backend.get_by_id,
+        get_user_by_username=backend.get_by_username,
         verify_password=backend.verify_password,
     )
+    fast = FastAuth(core)
+
     app = FastAPI()
     register_exception_handlers(app)
-    lifecycle = TokenLifecycle(config, store)
-    router = create_password_auth_router(user_fns, lifecycle, transport, config)
-    app.include_router(router)
+    app.include_router(fast.password_auth_router())
     return app
 
 
@@ -60,7 +60,7 @@ def app(config: AuthConfig, store: MemoryTokenStore, svc: TokenService) -> FastA
 
 
 class TestLogoutAllExpiredToken:
-    """When logout-all is called with an expired token, the endpoint returns 204
+    """When logout-all is called with an expired token, the endpoint returns 200
     but never calls revoke_all_for_user. This is a logic dead-end where the user
     thinks all sessions are revoked but they aren't.
     """
@@ -86,12 +86,10 @@ class TestLogoutAllExpiredToken:
                 "/auth/logout-all",
                 headers={"Authorization": f"Bearer {expired_token}"},
             )
-            # Returns 204 — looks successful to the user
-            assert resp.status_code == 204
+            assert resp.status_code == 200
 
         # BUG: The other tokens are NOT revoked because decode_token raised TokenExpiredError
         # and the except clause returned early without calling revoke_all_for_user.
-        # This test documents the current behavior.
         assert await store.is_revoked(payload1.jti) is False
         assert await store.is_revoked(payload2.jti) is False
 
@@ -111,7 +109,7 @@ class TestLogoutAllExpiredToken:
                 "/auth/logout-all",
                 headers={"Authorization": f"Bearer {token1}"},
             )
-            assert resp.status_code == 204
+            assert resp.status_code == 200
 
         assert await store.is_revoked(payload1.jti) is True
         assert await store.is_revoked(payload2.jti) is True
@@ -128,7 +126,7 @@ class TestLogoutAllExpiredToken:
                 "/auth/logout",
                 headers={"Authorization": f"Bearer {token}"},
             )
-            assert resp.status_code == 204
+            assert resp.status_code == 200
 
 
 # ── Vuln #1 (pipeline): Exception swallowing in logout ────────
@@ -137,18 +135,18 @@ class TestLogoutAllExpiredToken:
 class TestLogoutExceptionSwallowing:
     """Pipeline route logout uses `except Exception: pass` which hides storage errors."""
 
-    async def test_logout_with_garbage_token_returns_204(self, app: FastAPI) -> None:
+    async def test_logout_with_garbage_token_returns_200(self, app: FastAPI) -> None:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/auth/logout",
                 headers={"Authorization": "Bearer not.a.valid.jwt"},
             )
-            assert resp.status_code == 204
+            assert resp.status_code == 200
 
-    async def test_logout_without_token_returns_204(self, app: FastAPI) -> None:
+    async def test_logout_without_token_returns_200(self, app: FastAPI) -> None:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post("/auth/logout")
-            assert resp.status_code == 204
+            assert resp.status_code == 200
 
 
 # ── Login edge cases ──────────────────────────────────────────
@@ -159,7 +157,7 @@ class TestLoginEdgeCases:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/auth/login",
-                json={"username": "alice@example.com", "password": "wrong"},
+                json={"identifier": "alice@example.com", "password": "wrong"},
             )
             assert resp.status_code == 401
 
@@ -167,7 +165,7 @@ class TestLoginEdgeCases:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/auth/login",
-                json={"username": "nobody@example.com", "password": "pass"},
+                json={"identifier": "nobody@example.com", "password": "pass"},
             )
             assert resp.status_code == 401
 
@@ -175,7 +173,7 @@ class TestLoginEdgeCases:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/auth/login",
-                json={"username": "", "password": "pass"},
+                json={"identifier": "", "password": "pass"},
             )
             assert resp.status_code == 401
 
@@ -183,7 +181,7 @@ class TestLoginEdgeCases:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/auth/login",
-                json={"username": "alice@example.com", "password": ""},
+                json={"identifier": "alice@example.com", "password": ""},
             )
             assert resp.status_code == 401
 

@@ -5,8 +5,8 @@ from urauth._version import __version__
 # Core
 from urauth.auth import Auth
 
-# Authn
-from urauth.authn.password import PasswordHasher
+# Identity & Auth layer
+from urauth.identity.password import PasswordHasher
 
 # Authorization system
 from urauth.authz.checker import PermissionChecker, RoleExpandingChecker, StringChecker
@@ -16,11 +16,13 @@ from urauth.authz.permission_enum import PermissionEnum
 from urauth.authz.primitives import AllOf, AnyOf, Permission, Relation, RelationTuple, Requirement, Role
 from urauth.authz.relation_enum import RelationEnum
 from urauth.authz.roles import RoleRegistry
+
+# Config (internal, kept for backward compatibility)
 from urauth.config import AuthConfig
 from urauth.context import AuthContext
 
-# Events
-from urauth.events import AuthEvent, AuthEventHandler, NullEventHandler
+# Audit & Security Events layer
+from urauth.audit.events import AuthEvent, AuthEventHandler, NullEventHandler, StructlogEventHandler
 
 # Exceptions
 from urauth.exceptions import (
@@ -32,27 +34,47 @@ from urauth.exceptions import (
     UnauthorizedError,
 )
 
-# Pipeline configuration
-from urauth.pipeline import (
-    APIKeyStrategy,
-    BasicAuthStrategy,
-    FallbackStrategy,
+# Auth methods (was strategies)
+# OAuth providers
+from urauth.methods import (
+    JWT,
+    MFA,
+    OTP,
+    TOTP,
+    AccountLinking,
+    APIKey,
+    Apple,
+    BasicAuth,
+    DeliveryChannel,
+    Discord,
+    Email,
+    Fallback,
+    GitHub,
+    GitLab,
+    Google,
     Identifiers,
-    JWTStrategy,
-    MagicLinkLogin,
-    MFAMethod,
-    OAuthLogin,
+    Identity,
+    MagicLink,
+    Method,
+    Microsoft,
+    OAuth,
     OAuthProvider,
-    OTPLogin,
-    PasskeyLogin,
-    PasswordLogin,
-    PasswordReset,
-    Pipeline,
-    SessionStrategy,
+    Passkey,
+    Password,
+    Phone,
+    ResetablePassword,
+    Session,
+    Username,
 )
+
+# Plugin system
+from urauth.plugin import PluginRegistry, UrAuthPlugin
 
 # Rate limiting
 from urauth.ratelimit import KeyStrategy, RateLimiter
+
+# Results
+from urauth.results import AuthResult, LoginResult, MessageResult, MFARequiredResult, ResetSessionResult
 
 # Tenant hierarchy
 from urauth.tenant import TenantDefaults, TenantHierarchy, TenantLevel, TenantNode, TenantPath
@@ -63,10 +85,52 @@ from urauth.tokens.jwt import TokenService
 from urauth.tokens.lifecycle import IssuedTokenPair, IssueRequest, TokenLifecycle
 from urauth.types import TokenPair, TokenPayload
 
+# User data mixin
+from urauth.users import UserDataMixin
+
+# Account lifecycle layer
+from urauth.account import AccountLifecycle, AccountStore, AccountTokens, DeletionResult, SuspendResult
+
+# API key management layer
+from urauth.apikeys import ApiKeyManager, ApiKeyRecord, ApiKeyStore, CreatedApiKey
+
+# MFA layer
+from urauth.mfa import TOTP, BackupCodeStore, BackupCodes, GeneratedCodes, StepUpToken
+
+# Storage layer
+from urauth.storage import CachedTokenStore, MemorySessionStore, MemoryTokenStore
+
 __all__ = [
-    # Pipeline
+    # Auth methods
+    "JWT",
     "MFA",
-    "APIKeyStrategy",
+    "OTP",
+    "TOTP",
+    "APIKey",
+    "AccountLinking",
+    "BasicAuth",
+    "DeliveryChannel",
+    "Email",
+    "Fallback",
+    "Identifiers",
+    "Identity",
+    "MagicLink",
+    "Method",
+    "OAuth",
+    "Passkey",
+    "Password",
+    "Phone",
+    "ResetablePassword",
+    "Session",
+    "Username",
+    # OAuth providers
+    "Apple",
+    "Discord",
+    "GitHub",
+    "GitLab",
+    "Google",
+    "Microsoft",
+    "OAuthProvider",
     # Primitives
     "AllOf",
     "AnyOf",
@@ -74,36 +138,34 @@ __all__ = [
     "AuthEvent",
     "AuthEventHandler",
     "NullEventHandler",
+    "StructlogEventHandler",
     # Core
     "Auth",
     "AuthConfig",
     "AuthContext",
+    # Results
+    "AuthResult",
+    "LoginResult",
+    "MFARequiredResult",
+    "MessageResult",
+    "ResetSessionResult",
     # Exceptions
     "AuthError",
-    "BasicAuthStrategy",
-    "FallbackStrategy",
     "ForbiddenError",
-    "Identifiers",
     "InvalidTokenError",
     "IssueRequest",
     "IssuedTokenPair",
-    "JWTStrategy",
+    # Plugin system
+    "PluginRegistry",
+    "UrAuthPlugin",
     # Rate limiting
     "KeyStrategy",
-    "MagicLinkLogin",
-    "OAuthLogin",
-    "OAuthProvider",
-    "OTPLogin",
-    "PasskeyLogin",
     # Authn
     "PasswordHasher",
-    "PasswordLogin",
-    "PasswordReset",
     "Permission",
     # Authorization
     "PermissionChecker",
     "PermissionEnum",
-    "Pipeline",
     "RateLimiter",
     "Relation",
     "RelationEnum",
@@ -113,7 +175,7 @@ __all__ = [
     "RoleExpandingChecker",
     "RoleRegistry",
     "RoleTemplate",
-    "SessionStrategy",
+    "Session",
     "StringChecker",
     # Tenant hierarchy
     "TenantDefaults",
@@ -129,6 +191,29 @@ __all__ = [
     "TokenRevokedError",
     "TokenService",
     "UnauthorizedError",
+    # User data mixin
+    "UserDataMixin",
+    # Account lifecycle
+    "AccountLifecycle",
+    "AccountStore",
+    "AccountTokens",
+    "DeletionResult",
+    "SuspendResult",
+    # API keys
+    "ApiKeyManager",
+    "ApiKeyRecord",
+    "ApiKeyStore",
+    "CreatedApiKey",
+    # MFA
+    "TOTP",
+    "BackupCodeStore",
+    "BackupCodes",
+    "GeneratedCodes",
+    "StepUpToken",
+    # Storage
+    "CachedTokenStore",
+    "MemorySessionStore",
+    "MemoryTokenStore",
     # Meta
     "__version__",
 ]

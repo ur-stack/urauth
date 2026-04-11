@@ -35,8 +35,14 @@ make example-fastapi  # uvicorn on :8000
 ### Layer structure
 
 1. **Core layer** (`src/urauth/`) — Framework-agnostic auth primitives:
-   - `auth.py` — Base `Auth` class supporting both sync and async method overrides (uses `maybe_await()` for transparency). Subclass and override `get_user`, `get_user_by_username`, `verify_password`, `get_user_roles`, etc.
-   - `config.py` — `AuthConfig` (pydantic-settings, env prefix `AUTH_`)
+   - `auth.py` — `Auth(UserDataMixin)` class with flat constructor (`secret_key=`, `algorithm=`, `method=`, `password=`, `namespace=`, plus all 12 user-data hook callables). Exposes endpoint methods: `login()`, `refresh_tokens()`, `logout()`, `forgot_password()`, `reset_password_*()`, `mfa_*()`, etc. Supports both sync and async overrides via `maybe_await()`.
+   - `_async.py` — `maybe_await()` and `run_sync()` helpers (imported by `auth.py` and `users.py`).
+   - `users.py` — `UserDataMixin` base for user data access. Supports three patterns: (1) subclass Auth and override methods, (2) mixin composition `class MyAuth(Auth, SQLAlchemyUserStore)`, (3) pass callables to `Auth(get_user=..., ...)`. All 12 hooks are async with sensible defaults.
+   - `methods.py` — Auth method configs and login method configs:
+     - **Auth methods** (`method=`): `JWT` (with `ttl`, `refresh_ttl`, `store` for token store), `Session`, `BasicAuth`, `APIKey`, `Fallback`
+     - **Login methods**: `Password`, `ResetablePassword`, `OAuth`, `MagicLink`, `OTP`, `TOTP`, `Passkey`, `MFA`
+   - `results.py` — Framework-agnostic return types for Auth endpoint methods: `AuthResult`, `MFARequiredResult`, `ResetSessionResult`, `MessageResult`
+   - `config.py` — Internal `AuthConfig` (still used by TokenLifecycle, kept for backward compat). Users no longer pass `AuthConfig` directly — flat kwargs on `Auth()` instead.
    - `context.py` — `AuthContext` is the single identity model: holds user, roles, permissions, relations, scopes, token, request
    - `tokens/` — `TokenService` for JWT creation/validation via PyJWT
    - `authn/` — Password hashing (bcrypt), OAuth2 client
@@ -45,12 +51,13 @@ make example-fastapi  # uvicorn on :8000
    - `sessions/` — Redis session store (in-memory session store lives in `backends/memory.py`)
 
 2. **FastAPI adapter** (`src/urauth/fastapi/`) — Single entry point: `FastAuth`
-   - `auth.py` — `FastAuth` wraps core `Auth`, provides `context()`, `current_user`, `require()`, `access_control()` as FastAPI Depends
+   - `auth.py` — `FastAuth` wraps core `Auth`, reads `Auth.method` directly. Provides `context()`, `current_user`, `require()`, `access_control()` as FastAPI Depends.
+   - `routes.py` — `RouterBuilder` (replaces old `PipelineRouterBuilder`). `auto_router()` on FastAuth delegates here.
+   - `resolvers.py` — Strategy resolvers (moved from the deleted `pipeline/` directory)
    - `_guards.py` — Consolidated guard base class (`_BaseGuard`) for dual-use decorator/Depends pattern
    - `_utils.py` — Shared helpers (`find_request_param`, `find_context_and_request`)
    - `transport/` — Pluggable token extraction (bearer, cookie, header, hybrid)
    - `authz/access.py` — `AccessControl` with `guard()` for checker-based authorization
-   - `router.py` — Pre-built login/logout/refresh routes
    - `middleware.py` — CSRF and token refresh middleware
 
 ### Authorization system (`src/urauth/authz/`)
@@ -61,20 +68,58 @@ The authz system uses composable primitives with `AuthContext` as the single ide
 - **RoleRegistry** (`roles.py`): Defines roles with permissions and inheritance, supports `include()` for composition and `with_loader()` for DB-backed roles
 - **PermissionEnum** (`permission_enum.py`): Typed permission enums for static definition
 
-### FastAuth usage pattern
+### Usage pattern
 
+Three patterns for wiring user data access (all sync/async-transparent):
+
+**Subclass** (recommended)::
 ```python
-# 1. Subclass Auth with your user storage
+from urauth import Auth, JWT, Password
+from urauth.backends.memory import MemoryTokenStore
+from urauth.fastapi import FastAuth
+
 class MyAuth(Auth):
     async def get_user(self, user_id): ...
     async def get_user_by_username(self, username): ...
     async def verify_password(self, user, password): ...
 
-# 2. Wrap in FastAuth
-core = MyAuth(config=AuthConfig(...), token_store=MemoryTokenStore())
+core = MyAuth(
+    method=JWT(ttl=900, refresh_ttl=604800, store=MemoryTokenStore()),
+    secret_key="...",
+    password=Password(),
+)
 auth = FastAuth(core)
+```
 
-# 3. Use guards and access control
+**Mixin composition** (with contrib stores)::
+```python
+from urauth import Auth, JWT
+from urauth.contrib.sqlalchemy import SQLAlchemyUserStore
+
+class MyAuth(Auth, SQLAlchemyUserStore):
+    pass
+
+core = MyAuth(
+    session_factory=async_session_factory,
+    user_model=User,
+    method=JWT(...), secret_key="...",
+)
+auth = FastAuth(core)
+```
+
+**Callable kwargs** (quick)::
+```python
+core = Auth(
+    get_user=lambda uid: USERS_DB.get(str(uid)),
+    get_user_by_username=lambda u: ...,
+    verify_password=lambda user, pw: ...,
+    method=JWT(...), secret_key="...",
+)
+auth = FastAuth(core)
+```
+
+Guards and access control are the same regardless of which pattern you use:
+```python
 access = auth.access_control(registry=registry)
 
 @auth.require(can_read)                           # Requirement-based guard
@@ -90,6 +135,9 @@ user = Depends(auth.current_user)                 # User object only
 - **Protocol-driven**: Backends, transports, and checkers are all Protocol-based for pluggability
 - **Dual-use guards**: All guards work as `@decorator` and `Depends(guard)` via `_BaseGuard`
 - **Composable requirements**: `(user_read & admin) | (task_write & member_of)` builds complex auth rules
+- **Flat config**: No more `AuthConfig` object — pass `secret_key`, `algorithm`, etc. directly to `Auth()`
+- **User data access**: Three patterns — subclass Auth, mixin composition (`class MyAuth(Auth, SQLAlchemyUserStore)`), or callable kwargs. Subclass overrides take priority over callable kwargs (MRO-based).
+- **Namespace isolation**: `namespace=` on `Auth` for multi-project separation
 
 ## Code style
 

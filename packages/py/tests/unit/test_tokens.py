@@ -97,7 +97,7 @@ class TestValidation:
         # Token from different issuer
         other = TokenService(AuthConfig(secret_key="test", token_issuer="other-app", allow_insecure_key=True))
         token2 = other.create_access_token("user-1")
-        with pytest.raises(InvalidTokenError, match="Invalid issuer"):
+        with pytest.raises(InvalidTokenError):
             svc.validate_access_token(token2)
 
     def test_garbage_token(self, svc: TokenService) -> None:

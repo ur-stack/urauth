@@ -687,7 +687,7 @@ class TestFastAuthAccessControl:
     async def test_admin_can_delete(self, client: AsyncClient) -> None:
         login_resp = await client.post(
             "/auth/login",
-            json={"username": "alice@example.com", "password": "secret123"},
+            json={"identifier": "alice@example.com", "password": "secret123"},
         )
         token = login_resp.json()["access_token"]
 
@@ -697,7 +697,7 @@ class TestFastAuthAccessControl:
     async def test_viewer_cannot_delete(self, client: AsyncClient) -> None:
         login_resp = await client.post(
             "/auth/login",
-            json={"username": "bob@example.com", "password": "password456"},
+            json={"identifier": "bob@example.com", "password": "password456"},
         )
         token = login_resp.json()["access_token"]
 
@@ -707,7 +707,7 @@ class TestFastAuthAccessControl:
     async def test_viewer_can_read(self, client: AsyncClient) -> None:
         login_resp = await client.post(
             "/auth/login",
-            json={"username": "bob@example.com", "password": "password456"},
+            json={"identifier": "bob@example.com", "password": "password456"},
         )
         token = login_resp.json()["access_token"]
 
@@ -742,7 +742,7 @@ class TestFastAuthAccessControl:
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             login_resp = await client.post(
                 "/auth/login",
-                json={"username": "alice@example.com", "password": "secret123"},
+                json={"identifier": "alice@example.com", "password": "secret123"},
             )
             token = login_resp.json()["access_token"]
 

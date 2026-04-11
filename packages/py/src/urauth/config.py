@@ -53,7 +53,7 @@ class AuthConfig(BaseSettings):
     session_cookie_httponly: bool = True
     session_cookie_samesite: SameSitePolicy = "lax"
 
-    # Cookie transport
+    # Access token cookie (used when transport="cookie" or "hybrid")
     cookie_name: str = "access_token"
     cookie_secure: bool = True
     cookie_httponly: bool = True
@@ -61,6 +61,14 @@ class AuthConfig(BaseSettings):
     cookie_max_age: int | None = None
     cookie_domain: str | None = None
     cookie_path: str = "/"
+
+    # Refresh token cookie (always httpOnly — never exposed to JS)
+    refresh_cookie_name: str = "refresh_token"
+    refresh_cookie_secure: bool = True
+    refresh_cookie_samesite: SameSitePolicy = "strict"
+    refresh_cookie_max_age: int | None = None
+    refresh_cookie_domain: str | None = None
+    refresh_cookie_path: str = "/"
 
     # CSRF
     csrf_enabled: bool = False

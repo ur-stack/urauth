@@ -22,7 +22,8 @@ dependencies = [
     "pydantic>=2.0,<3.0",
     "pydantic-settings>=2.0,<3.0",
     "PyJWT>=2.8.0,<3.0",
-    "bcrypt>=4.0,<6.0",
+    "cryptography>=42.0",
+    "itsdangerous>=2.1",
 ]
 
 [project.optional-dependencies]
@@ -31,9 +32,13 @@ oauth = ["httpx>=0.25.0"]
 redis = ["redis[hiredis]>=5.0"]
 sqlalchemy = ["sqlalchemy[asyncio]>=2.0"]
 sqlmodel = ["sqlmodel>=0.0.14"]
-all = ["urauth[fastapi,oauth,redis,sqlalchemy]"]
+ratelimit = ["pyrate-limiter>=3.0"]
+audit = ["structlog>=24.0"]
+cache = ["cachetools>=5.0"]
+bcrypt = ["bcrypt>=4.0,<6.0"]
+all = ["urauth[fastapi,oauth,redis,sqlalchemy,ratelimit,audit,cache]"]
 dev = [
-    "urauth[fastapi,oauth]",
+    "urauth[fastapi,oauth,ratelimit,audit,cache,bcrypt,sqlalchemy,sqlmodel]",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "pytest-xdist>=3.5",
@@ -43,6 +48,7 @@ dev = [
     "ruff>=0.9",
     "basedpyright>=1.20",
     "hypothesis>=6.0",
+    "aiosqlite>=0.19",
 ]
 
 [build-system]
@@ -106,4 +112,6 @@ pythonVersion = "3.10"
 typeCheckingMode = "strict"
 
 [dependency-groups]
-dev = []
+dev = [
+    "aiosqlite>=0.22.1",
+]

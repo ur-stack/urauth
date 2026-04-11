@@ -28,6 +28,7 @@ htmlcov/
 
 # Built docs
 site/
+.vitepress/cache/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 docs/packages/

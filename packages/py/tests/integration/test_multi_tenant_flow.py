@@ -49,7 +49,7 @@ class TestTenantIsolation:
         # Login
         resp = await tenant_client.post(
             "/auth/login",
-            json={"username": "admin@test.com", "password": "admin-pass"},
+            json={"identifier": "admin@test.com", "password": "admin-pass"},
         )
         token = resp.json()["access_token"]
 
@@ -64,7 +64,7 @@ class TestTenantIsolation:
     async def test_different_tenants_resolve_separately(self, tenant_client: AsyncClient) -> None:
         resp = await tenant_client.post(
             "/auth/login",
-            json={"username": "admin@test.com", "password": "admin-pass"},
+            json={"identifier": "admin@test.com", "password": "admin-pass"},
         )
         token = resp.json()["access_token"]
 
@@ -82,7 +82,7 @@ class TestTenantIsolation:
     async def test_missing_tenant_returns_403(self, tenant_client: AsyncClient) -> None:
         resp = await tenant_client.post(
             "/auth/login",
-            json={"username": "admin@test.com", "password": "admin-pass"},
+            json={"identifier": "admin@test.com", "password": "admin-pass"},
         )
         token = resp.json()["access_token"]
 

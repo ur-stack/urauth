@@ -44,7 +44,7 @@ class TestCSRFProtectionFlow:
         # POST with matching cookie + header
         resp = await csrf_client.post(
             "/auth/login",
-            json={"username": "admin@test.com", "password": "admin-pass"},
+            json={"identifier": "admin@test.com", "password": "admin-pass"},
             cookies={"csrf_token": csrf_token},
             headers={"X-CSRF-Token": csrf_token},
         )
@@ -53,7 +53,7 @@ class TestCSRFProtectionFlow:
     async def test_post_without_csrf_cookie_fails(self, csrf_client: AsyncClient) -> None:
         resp = await csrf_client.post(
             "/auth/login",
-            json={"username": "admin@test.com", "password": "admin-pass"},
+            json={"identifier": "admin@test.com", "password": "admin-pass"},
             headers={"X-CSRF-Token": "some-token"},
         )
         assert resp.status_code == 403
@@ -62,7 +62,7 @@ class TestCSRFProtectionFlow:
     async def test_post_without_csrf_header_fails(self, csrf_client: AsyncClient) -> None:
         resp = await csrf_client.post(
             "/auth/login",
-            json={"username": "admin@test.com", "password": "admin-pass"},
+            json={"identifier": "admin@test.com", "password": "admin-pass"},
             cookies={"csrf_token": "some-token"},
         )
         assert resp.status_code == 403
@@ -70,7 +70,7 @@ class TestCSRFProtectionFlow:
     async def test_post_with_mismatched_csrf_fails(self, csrf_client: AsyncClient) -> None:
         resp = await csrf_client.post(
             "/auth/login",
-            json={"username": "admin@test.com", "password": "admin-pass"},
+            json={"identifier": "admin@test.com", "password": "admin-pass"},
             cookies={"csrf_token": "token-a"},
             headers={"X-CSRF-Token": "token-b"},
         )

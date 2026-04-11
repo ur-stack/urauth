@@ -10,7 +10,7 @@ import pytest
 
 from urauth.backends.memory import MemoryTokenStore
 from urauth.config import AuthConfig
-from urauth.exceptions import InvalidTokenError, TokenRevokedError, UnauthorizedError
+from urauth.exceptions import TokenRevokedError, UnauthorizedError
 from urauth.tokens.jwt import TokenService
 from urauth.tokens.lifecycle import IssueRequest, TokenLifecycle
 

@@ -6,8 +6,6 @@ wildcard permission semantics, and empty permission/role/relation lists.
 
 from __future__ import annotations
 
-import pytest
-
 from urauth.authz.primitives import Permission, Relation, RelationTuple, Role, match_permission
 from urauth.context import AuthContext
 

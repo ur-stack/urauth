@@ -5,10 +5,9 @@
  * role management, and auth state in Vue 3 applications.
  */
 
-import { inject, provide, computed, type InjectionKey, type ComputedRef } from "vue";
-import type { AuthContext } from "@urauth/ts";
-import { canAccess, type PermissionChecker } from "@urauth/ts";
-import type { Requirement } from "@urauth/ts";
+import { inject, provide, computed, ref, type InjectionKey, type ComputedRef, type Ref } from "vue";
+import type { AuthContext, TokenPair, PermissionChecker, Requirement, UrAuthClient } from "@urauth/ts";
+import { canAccess } from "@urauth/ts";
 
 interface AccessContext {
   ctx: AuthContext;
@@ -191,3 +190,53 @@ export function useTenant(): {
     atLevel: (level: string) => resolved.ctx.atLevel(level),
   };
 }
+
+// ---------------------------------------------------------------------------
+// provideUrAuthClient — connect an UrAuthClient to the Vue context
+// ---------------------------------------------------------------------------
+
+const clientKey: InjectionKey<UrAuthClient> = Symbol("urAuth-client");
+
+/**
+ * Provide an UrAuthClient and auto-populate the access context from
+ * decoded JWT claims. Reactively updates on token changes.
+ *
+ * Usage:
+ *   // In App.vue setup
+ *   const client = new UrAuthClient({ baseURL: "http://localhost:8000" });
+ *   provideUrAuthClient(client);
+ */
+export function provideUrAuthClient(
+  client: UrAuthClient,
+  checker?: PermissionChecker,
+): void {
+  provide(clientKey, client);
+
+  // Create a reactive context that updates on token changes
+  const ctx = ref(client.getContext()) as Ref<AccessContext["ctx"]>;
+
+  // Hook into the client's onTokenChange to update reactively
+  const prevCallback = client.onTokenChange;
+  client.onTokenChange = (tokens: TokenPair | null) => {
+    prevCallback?.(tokens);
+    ctx.value = client.getContext();
+  };
+
+  // Provide the reactive access context — use a computed so it stays in sync
+  provide(accessKey, computed<AccessContext>(() => ({ ctx: ctx.value, checker })).value);
+}
+
+/**
+ * Inject the UrAuthClient provided by provideUrAuthClient.
+ */
+export function useUrAuthClient(): UrAuthClient {
+  const client = inject(clientKey);
+  if (client === undefined) {
+    throw new Error("useUrAuthClient() requires provideUrAuthClient() in a parent component.");
+  }
+  return client;
+}
+
+// ── TanStack Query composables (re-exported) ──────────────────
+
+export { useSession, useLogin, useLogout, useLogoutAll, useRefresh } from "./query";

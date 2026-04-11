@@ -5,11 +5,11 @@
  * checking permissions, roles, and relations.
  */
 
-import type { TokenPayload } from "./types";
-import type { Requirement } from "./authz/requirement";
-import type { Relation, RelationTuple} from "./authz/primitives";
-import { Permission, Role, matchPermission } from "./authz/primitives";
-import type { TenantPath } from "./tenant/hierarchy";
+import type { TokenPayload } from "./types.js";
+import type { Requirement } from "./authz/requirement.js";
+import type { Relation, RelationTuple} from "./authz/primitives.js";
+import { Permission, Role, matchPermission } from "./authz/primitives.js";
+import type { TenantPath } from "./tenant/hierarchy.js";
 
 export interface AuthContextOptions {
   user?: unknown;

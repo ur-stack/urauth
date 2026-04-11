@@ -2,8 +2,8 @@
  * RoleRegistry — composable, role management with optional DB loading.
  */
 
-import { RoleExpandingChecker } from "./checker";
-import type { Permission } from "./primitives";
+import { RoleExpandingChecker } from "./checker.js";
+import type { Permission } from "./primitives.js";
 
 /** Protocol for loading roles from an external source (database, API, etc.). */
 export interface RoleLoader {

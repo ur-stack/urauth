@@ -1,0 +1,7 @@
+{
+  "venvPath": ".",
+  "typeCheckingMode": "standard",
+  "venv": ".venv",
+  "reportCallInDefaultInitializer": false,
+  "reportUnusedParameter": false
+}
